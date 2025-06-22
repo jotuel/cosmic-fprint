@@ -1,2 +1,0 @@
-cargo:rustc-cfg=glsl_out
-cargo:rustc-cfg=spv_out

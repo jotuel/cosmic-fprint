@@ -7,7 +7,7 @@ use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
-use cosmic::widget::{self, icon, menu, nav_bar};
+use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
 use std::collections::HashMap;
@@ -67,7 +67,7 @@ impl cosmic::Application for AppModel {
         core: cosmic::Core,
         _flags: Self::Flags,
     ) -> (Self, Task<cosmic::Action<Self::Message>>) {
-        // Create a nav bar with three page items.
+        // Create a nav bar for every fingerprint
         let mut nav = nav_bar::Model::default();
 
         nav.insert()
@@ -85,6 +85,41 @@ impl cosmic::Application for AppModel {
             .text(fl!("page-id", num = 3))
             .data::<Page>(Page::Page3)
             .icon(icon::from_name("applications-games-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 4))
+            .data::<Page>(Page::Page4)
+            .icon(icon::from_name("applications-utilities-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 5))
+            .data::<Page>(Page::Page5)
+            .icon(icon::from_name("applications-utilities-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 6))
+            .data::<Page>(Page::Page6)
+            .icon(icon::from_name("applications-utilities-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 7))
+            .data::<Page>(Page::Page7)
+            .icon(icon::from_name("applications-utilities-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 8))
+            .data::<Page>(Page::Page8)
+            .icon(icon::from_name("applications-utilities-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 9))
+            .data::<Page>(Page::Page9)
+            .icon(icon::from_name("applications-utilities-symbolic"));
+
+        nav.insert()
+            .text(fl!("page-id", num = 10))
+            .data::<Page>(Page::Page10)
+            .icon(icon::from_name("applications-utilities-symbolic"));
 
         // Construct the app model with the runtime's core.
         let mut app = AppModel {
@@ -151,7 +186,7 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
-        widget::text::title1(fl!("welcome"))
+        text::title1(fl!("fprint", id = 1))
             .apply(widget::container)
             .width(Length::Fill)
             .height(Length::Fill)
@@ -246,7 +281,7 @@ impl AppModel {
 
         let icon = widget::svg(widget::svg::Handle::from_memory(APP_ICON));
 
-        let title = widget::text::title3(fl!("app-title"));
+        let title = text::title3(fl!("app-title"));
 
         let hash = env!("VERGEN_GIT_SHA");
         let short_hash: String = hash.chars().take(7).collect();
@@ -296,6 +331,13 @@ pub enum Page {
     Page1,
     Page2,
     Page3,
+    Page4,
+    Page5,
+    Page6,
+    Page7,
+    Page8,
+    Page9,
+    Page10,
 }
 
 /// The context page to display in the context drawer.

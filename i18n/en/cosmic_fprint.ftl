@@ -1,6 +1,7 @@
 app-title = Cosmic Fprint
 about = About
 view = View
-welcome = Welcome to COSMIC! ✨
-page-id = Page { $num }
+fprint = Fingerprint { $id }
+welcome = Register and/or delete fingerprints
+page-id = Fingerprint { $num }
 git-description = Git commit {$hash} on {$date}
