@@ -1,0 +1,11 @@
+/home/jwnz/Git/cosmic-fprint/target/release/deps/libasync_process-ac7602a6ac903de3.rmeta: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/unix.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/wait.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/signal.rs
+
+/home/jwnz/Git/cosmic-fprint/target/release/deps/libasync_process-ac7602a6ac903de3.rlib: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/unix.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/wait.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/signal.rs
+
+/home/jwnz/Git/cosmic-fprint/target/release/deps/async_process-ac7602a6ac903de3.d: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/unix.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/wait.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/signal.rs
+
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/lib.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/unix.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/mod.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/wait.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-process-2.3.0/src/reaper/signal.rs:

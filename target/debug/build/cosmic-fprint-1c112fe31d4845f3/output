@@ -1,0 +1,10 @@
+cargo:rerun-if-changed=i18n
+cargo:rerun-if-env-changed=VERGEN_GIT_COMMIT_DATE
+cargo:rerun-if-env-changed=VERGEN_GIT_SHA
+cargo:rustc-env=VERGEN_GIT_COMMIT_DATE=2025-05-26
+cargo:rustc-env=VERGEN_GIT_SHA=96ddd0a7ab0cd5375e2fbeb743c90f395d9b5461
+cargo:rerun-if-changed=.git/HEAD
+cargo:rerun-if-changed=.git/refs/heads/main
+cargo:rerun-if-changed=build.rs
+cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
+cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH

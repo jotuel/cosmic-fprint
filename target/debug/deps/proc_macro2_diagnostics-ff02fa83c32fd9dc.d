@@ -1,0 +1,10 @@
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/libproc_macro2_diagnostics-ff02fa83c32fd9dc.rmeta: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/ext.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/diagnostic.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/line.rs
+
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/libproc_macro2_diagnostics-ff02fa83c32fd9dc.rlib: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/ext.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/diagnostic.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/line.rs
+
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/proc_macro2_diagnostics-ff02fa83c32fd9dc.d: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/ext.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/diagnostic.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/line.rs
+
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/lib.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/ext.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/diagnostic.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-diagnostics-0.10.1/src/line.rs:

@@ -1,0 +1,10 @@
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/libfutures_channel-2b3c41b814e45c39.rmeta: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/lock.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/queue.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/sink_impl.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/oneshot.rs
+
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/futures_channel-2b3c41b814e45c39.d: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/lock.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/queue.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/sink_impl.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/oneshot.rs
+
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/lib.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/lock.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/mod.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/queue.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/mpsc/sink_impl.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.31/src/oneshot.rs:

@@ -1,0 +1,9 @@
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/liblitemap-78f15299ed305eef.rmeta: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/map.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/slice_impl.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/vec_impl.rs
+
+/home/jwnz/Git/cosmic-fprint/target/debug/deps/litemap-78f15299ed305eef.d: /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/lib.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/map.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/mod.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/slice_impl.rs /home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/vec_impl.rs
+
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/lib.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/map.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/mod.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/slice_impl.rs:
+/home/jwnz/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.0/src/store/vec_impl.rs:

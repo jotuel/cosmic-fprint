@@ -1,0 +1,1 @@
+{"rustc":15597765236515928571,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[7947390121038904858,"build_script_build",false,16031561571230375558]],"local":[{"RerunIfChanged":{"output":"release/build/drm-fourcc-6f55818b183b2340/output","paths":["build.rs"]}}],"rustflags":[],"config":0,"compile_kind":0}
