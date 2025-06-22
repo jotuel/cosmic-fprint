@@ -6,6 +6,7 @@ use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::{Alignment, Length, Subscription};
+use cosmic::iced_widget::button;
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
@@ -38,6 +39,8 @@ pub enum Message {
     ToggleContextPage(ContextPage),
     UpdateConfig(Config),
     LaunchUrl(String),
+    Delete,
+    Register,
 }
 
 /// Create a COSMIC application from the app model
@@ -71,53 +74,52 @@ impl cosmic::Application for AppModel {
         let mut nav = nav_bar::Model::default();
 
         nav.insert()
-            .text(fl!("page-id", num = 1))
+            .text(fl!("page-id", name = "Right thumb"))
             .data::<Page>(Page::Page1)
-            .icon(icon::from_name("applications-science-symbolic"))
-            .activate();
+            .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 2))
+            .text(fl!("page-id", name = "Right index"))
             .data::<Page>(Page::Page2)
-            .icon(icon::from_name("applications-system-symbolic"));
+            .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 3))
+            .text(fl!("page-id", name = "Right middle"))
             .data::<Page>(Page::Page3)
-            .icon(icon::from_name("applications-games-symbolic"));
+            .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 4))
+            .text(fl!("page-id", name = "Right ring"))
             .data::<Page>(Page::Page4)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 5))
+            .text(fl!("page-id", name = "Right pinky"))
             .data::<Page>(Page::Page5)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 6))
+            .text(fl!("page-id", name = "Left thumb"))
             .data::<Page>(Page::Page6)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 7))
+            .text(fl!("page-id", name = "Left index"))
             .data::<Page>(Page::Page7)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 8))
+            .text(fl!("page-id", name = "Left middle"))
             .data::<Page>(Page::Page8)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 9))
+            .text(fl!("page-id", name = "Left ring"))
             .data::<Page>(Page::Page9)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", num = 10))
+            .text(fl!("page-id", name = "Left pinky"))
             .data::<Page>(Page::Page10)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
@@ -186,12 +188,27 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
-        text::title1(fl!("fprint", id = 1))
-            .apply(widget::container)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
+        widget::column()
+            .push(
+                text::title1(fl!("fprint"))
+                    .apply(widget::container)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_x(Horizontal::Center)
+                    .align_y(Vertical::Center),
+            )
+            .push(
+                widget::button::link(fl!("register"))
+                    .on_press(Message::Register)
+                    .padding(10),
+            )
+            .push(
+                widget::button::link(fl!("delete"))
+                    .on_press(Message::Delete)
+                    .padding(10),
+            )
+            .spacing(20)
+            .align_x(Alignment::Center)
             .into()
     }
 
@@ -232,6 +249,8 @@ impl cosmic::Application for AppModel {
     /// on the application's async runtime.
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
+            Message::Delete => {}
+            Message::Register => {}
             Message::OpenRepositoryUrl => {
                 _ = open::that_detached(REPOSITORY);
             }
