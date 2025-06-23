@@ -251,10 +251,19 @@ impl cosmic::Application for AppModel {
     /// on the application's async runtime.
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
-            Message::Delete => {}
+            Message::Delete => {
+                let s = self.nav.text(self.nav.active());
+                let ret = delete_fingerprint(s.unwrap_or_default());
+                if ret.is_none() {
+                    self.dialog();
+                }
+            }
             Message::Register => {
                 let s = self.nav.text(self.nav.active());
-                register_fingerprint(s.expect("None")).expect("Failed to register fingerprint");
+                let ret = register_fingerprint(s.unwrap_or_default());
+                if ret.is_none() {
+                    self.dialog();
+                }
             }
             Message::OpenRepositoryUrl => {
                 _ = open::that_detached(REPOSITORY);
@@ -298,8 +307,86 @@ impl cosmic::Application for AppModel {
     }
 }
 
-pub fn register_fingerprint(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn delete_fingerprint(id: &str) -> Option<()> {
+    if id.is_empty() {
+        return None;
+    }
+    let mut str = id.replace("\u{2069}", "");
+    str = str.replace("\u{2068}", "");
+
+    match str.as_str() {
+        "Right Thumb finger" => {
+            Command::new("fprintd-delete")
+                .arg("right-thumb")
+                .spawn()
+                .expect("Err");
+        }
+        "Right Index finger" => {
+            Command::new("fprintd-delete")
+                .arg("right-index-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Right Middle finger" => {
+            Command::new("fprintd-delete")
+                .arg("right-middle-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Right Ring finger" => {
+            Command::new("fprintd-delete")
+                .arg("right-ring-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Right Little finger" => {
+            Command::new("fprintd-delete")
+                .arg("right-little-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Left Thumb finger" => {
+            Command::new("fprintd-delete")
+                .arg("left-thumb")
+                .spawn()
+                .expect("Err");
+        }
+        "Left Index finger" => {
+            Command::new("fprintd-delete")
+                .arg("left-index-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Left Middle finger" => {
+            Command::new("fprintd-delete")
+                .arg("left-middle-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Left Ring finger" => {
+            Command::new("fprintd-delete")
+                .arg("left-ring-finger")
+                .spawn()
+                .expect("Err");
+        }
+        "Left Little finger" => {
+            Command::new("fprintd-delete")
+                .arg("left-little-finger")
+                .spawn()
+                .expect("Err");
+        }
+        &_ => {
+            Command::new("fprintd-delete").spawn().expect("Err");
+        }
+    }
+    Some(())
+}
+
+pub fn register_fingerprint(id: &str) -> Option<()> {
     // Implementation of register_fingerprint function
+    if id.is_empty() {
+        return None;
+    }
     let mut str = id.replace("\u{2069}", "");
     str = str.replace("\u{2068}", "");
     println!("{}", str);
@@ -360,7 +447,7 @@ pub fn register_fingerprint(id: &str) -> Result<(), Box<dyn std::error::Error>> 
             .spawn()
             .expect("Failed to execute command"),
     };
-    Ok(())
+    Some(())
 }
 
 impl AppModel {
