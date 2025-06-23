@@ -6,12 +6,12 @@ use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::{Alignment, Length, Subscription};
-use cosmic::iced_widget::button;
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
 use std::collections::HashMap;
+use std::process::Command;
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
@@ -74,52 +74,52 @@ impl cosmic::Application for AppModel {
         let mut nav = nav_bar::Model::default();
 
         nav.insert()
-            .text(fl!("page-id", name = "Right thumb"))
+            .text(fl!("page-id", name = "Right Thumb"))
             .data::<Page>(Page::Page1)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Right index"))
+            .text(fl!("page-id", name = "Right Index"))
             .data::<Page>(Page::Page2)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Right middle"))
+            .text(fl!("page-id", name = "Right Middle"))
             .data::<Page>(Page::Page3)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Right ring"))
+            .text(fl!("page-id", name = "Right Ring"))
             .data::<Page>(Page::Page4)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Right pinky"))
+            .text(fl!("page-id", name = "Right Pinky"))
             .data::<Page>(Page::Page5)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Left thumb"))
+            .text(fl!("page-id", name = "Left Thumb"))
             .data::<Page>(Page::Page6)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Left index"))
+            .text(fl!("page-id", name = "Left Index"))
             .data::<Page>(Page::Page7)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Left middle"))
+            .text(fl!("page-id", name = "Left Middle"))
             .data::<Page>(Page::Page8)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Left ring"))
+            .text(fl!("page-id", name = "Left Ring"))
             .data::<Page>(Page::Page9)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
-            .text(fl!("page-id", name = "Left pinky"))
+            .text(fl!("page-id", name = "Left Pinky"))
             .data::<Page>(Page::Page10)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
@@ -198,17 +198,19 @@ impl cosmic::Application for AppModel {
                     .align_y(Vertical::Center),
             )
             .push(
-                widget::button::link(fl!("register"))
-                    .on_press(Message::Register)
-                    .padding(10),
+                widget::row()
+                    .push(widget::button::text(fl!("register")).on_press(Message::Register))
+                    .push(widget::button::text(fl!("delete")).on_press(Message::Delete))
+                    .apply(widget::container)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_x(Horizontal::Center)
+                    .align_y(Vertical::Center)
+                    .padding(20),
             )
-            .push(
-                widget::button::link(fl!("delete"))
-                    .on_press(Message::Delete)
-                    .padding(10),
-            )
+            .align_x(Horizontal::Center)
             .spacing(20)
-            .align_x(Alignment::Center)
+            .padding(20)
             .into()
     }
 
@@ -250,7 +252,10 @@ impl cosmic::Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
             Message::Delete => {}
-            Message::Register => {}
+            Message::Register => {
+                let s = self.nav.text(self.nav.active());
+                register_fingerprint(s.expect("None")).expect("Failed to register fingerprint");
+            }
             Message::OpenRepositoryUrl => {
                 _ = open::that_detached(REPOSITORY);
             }
@@ -291,6 +296,71 @@ impl cosmic::Application for AppModel {
 
         self.update_title()
     }
+}
+
+pub fn register_fingerprint(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Implementation of register_fingerprint function
+    let mut str = id.replace("\u{2069}", "");
+    str = str.replace("\u{2068}", "");
+    println!("{}", str);
+
+    match str.as_str() {
+        "Right Thumb finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("right-thumb")
+            .spawn()
+            .expect("Err"),
+        "Right Index finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("right-index-finger")
+            .spawn()
+            .expect("Err"),
+        "Right Middle finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("right-middle-finger")
+            .spawn()
+            .expect("Err"),
+        "Right Ring finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("right-ring-finger")
+            .spawn()
+            .expect("Err"),
+        "Right Little finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("right-little-finger")
+            .spawn()
+            .expect("Err"),
+        "Left Thumb finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("left-thumb")
+            .spawn()
+            .expect("Err"),
+        "Left Index finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("left-index-finger")
+            .spawn()
+            .expect("Err"),
+        "Left Middle finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("left-middle-finger")
+            .spawn()
+            .expect("Err"),
+        "Left Ring finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("left-ring-finger")
+            .spawn()
+            .expect("Err"),
+        "Left Little finger" => Command::new("fprintd-enroll")
+            .arg("-f")
+            .arg("left-little-finger")
+            .spawn()
+            .expect("Err"),
+        &_ => Command::new("fprintd-enroll")
+            .arg("")
+            .spawn()
+            .expect("Failed to execute command"),
+    };
+    Ok(())
 }
 
 impl AppModel {
