@@ -11,6 +11,7 @@ use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process::Command;
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
@@ -41,6 +42,7 @@ pub enum Message {
     LaunchUrl(String),
     Delete,
     Register,
+    Feedback(String),
 }
 
 /// Create a COSMIC application from the app model
@@ -198,6 +200,13 @@ impl cosmic::Application for AppModel {
                     .align_y(Vertical::Center),
             )
             .push(
+                widget::svg(widget::svg::Handle::from_path(std::path::PathBuf::from(
+                    "resources/icons/hicolor/scalable/apps/fprint.svg",
+                )))
+                .width(Length::Fill)
+                .height(Length::Fill),
+            )
+            .push(
                 widget::row()
                     .push(widget::button::text(fl!("register")).on_press(Message::Register))
                     .push(widget::button::text(fl!("delete")).on_press(Message::Delete))
@@ -252,21 +261,34 @@ impl cosmic::Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
             Message::Delete => {
-                let s = self.nav.text(self.nav.active());
-                let ret = delete_fingerprint(s.unwrap_or_default());
-                if ret.is_none() {
+                if let Some(s) = self.nav.text(self.nav.active()) {
+                    if delete_fingerprint(&s).is_none() {
+                        self.dialog();
+                    }
+                } else {
+                    // No active nav item — show a dialog to inform the user.
                     self.dialog();
                 }
             }
             Message::Register => {
-                let s = self.nav.text(self.nav.active());
-                let ret = register_fingerprint(s.unwrap_or_default());
-                if ret.is_none() {
+                if let Some(s) = self.nav.text(self.nav.active()) {
+                    match register_fingerprint(&s) {
+                        None => {
+                            // Registration failed or nothing selected — show dialog.
+                            self.dialog();
+                        }
+                        Some(output) => {
+                            // Print feedback for now (could be shown in a dialog).
+                            println!("{}", output);
+                        }
+                    }
+                } else {
+                    // No active nav item — show a dialog to inform the user.
                     self.dialog();
                 }
             }
             Message::OpenRepositoryUrl => {
-                _ = open::that_detached(REPOSITORY);
+                let _ = open::that_detached(REPOSITORY);
             }
 
             Message::SubscriptionChannel => {
@@ -282,6 +304,11 @@ impl cosmic::Application for AppModel {
                     self.context_page = context_page;
                     self.core.window.show_context = true;
                 }
+            }
+
+            Message::Feedback(feedback) => {
+                // Log or print feedback rather than creating a widget here.
+                println!("{}", feedback);
             }
 
             Message::UpdateConfig(config) => {
@@ -307,6 +334,7 @@ impl cosmic::Application for AppModel {
     }
 }
 
+/// Delete a fingerprint based on tab open.
 fn delete_fingerprint(id: &str) -> Option<()> {
     if id.is_empty() {
         return None;
@@ -314,76 +342,56 @@ fn delete_fingerprint(id: &str) -> Option<()> {
     let mut str = id.replace("\u{2069}", "");
     str = str.replace("\u{2068}", "");
 
-    match str.as_str() {
-        "Right Thumb finger" => {
-            Command::new("fprintd-delete")
-                .arg("right-thumb")
-                .spawn()
-                .expect("Err");
-        }
-        "Right Index finger" => {
-            Command::new("fprintd-delete")
-                .arg("right-index-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Right Middle finger" => {
-            Command::new("fprintd-delete")
-                .arg("right-middle-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Right Ring finger" => {
-            Command::new("fprintd-delete")
-                .arg("right-ring-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Right Little finger" => {
-            Command::new("fprintd-delete")
-                .arg("right-little-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Left Thumb finger" => {
-            Command::new("fprintd-delete")
-                .arg("left-thumb")
-                .spawn()
-                .expect("Err");
-        }
-        "Left Index finger" => {
-            Command::new("fprintd-delete")
-                .arg("left-index-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Left Middle finger" => {
-            Command::new("fprintd-delete")
-                .arg("left-middle-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Left Ring finger" => {
-            Command::new("fprintd-delete")
-                .arg("left-ring-finger")
-                .spawn()
-                .expect("Err");
-        }
-        "Left Little finger" => {
-            Command::new("fprintd-delete")
-                .arg("left-little-finger")
-                .spawn()
-                .expect("Err");
-        }
-        &_ => {
-            Command::new("fprintd-delete").spawn().expect("Err");
-        }
-    }
+    let command = match str.as_str() {
+        "Right Thumb finger" => Command::new("fprintd-delete")
+            .arg("right-thumb")
+            .output()
+            .expect("Err"),
+        "Right Index finger" => Command::new("fprintd-delete")
+            .arg("right-index-finger")
+            .output()
+            .expect("Err"),
+        "Right Middle finger" => Command::new("fprintd-delete")
+            .arg("right-middle-finger")
+            .output()
+            .expect("Err"),
+        "Right Ring finger" => Command::new("fprintd-delete")
+            .arg("right-ring-finger")
+            .output()
+            .expect("Err"),
+        "Right Little finger" => Command::new("fprintd-delete")
+            .arg("right-little-finger")
+            .output()
+            .expect("Err"),
+        "Left Thumb finger" => Command::new("fprintd-delete")
+            .arg("left-thumb")
+            .output()
+            .expect("Err"),
+        "Left Index finger" => Command::new("fprintd-delete")
+            .arg("left-index-finger")
+            .output()
+            .expect("Err"),
+        "Left Middle finger" => Command::new("fprintd-delete")
+            .arg("left-middle-finger")
+            .output()
+            .expect("Err"),
+        "Left Ring finger" => Command::new("fprintd-delete")
+            .arg("left-ring-finger")
+            .output()
+            .expect("Err"),
+        "Left Little finger" => Command::new("fprintd-delete")
+            .arg("left-little-finger")
+            .output()
+            .expect("Err"),
+        &_ => Command::new("fprintd-delete").output().expect("Err"),
+    };
+    Message::Feedback(String::from_utf8(command.stdout).unwrap());
+
     Some(())
 }
 
-pub fn register_fingerprint(id: &str) -> Option<()> {
-    // Implementation of register_fingerprint function
+/// Register a fingerprint based on the tab selected
+pub fn register_fingerprint(id: &str) -> Option<String> {
     if id.is_empty() {
         return None;
     }
@@ -391,63 +399,63 @@ pub fn register_fingerprint(id: &str) -> Option<()> {
     str = str.replace("\u{2068}", "");
     println!("{}", str);
 
-    match str.as_str() {
+    let command = match str.as_str() {
         "Right Thumb finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("right-thumb")
-            .spawn()
+            .output()
             .expect("Err"),
         "Right Index finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("right-index-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Right Middle finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("right-middle-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Right Ring finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("right-ring-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Right Little finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("right-little-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Left Thumb finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("left-thumb")
-            .spawn()
+            .output()
             .expect("Err"),
         "Left Index finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("left-index-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Left Middle finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("left-middle-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Left Ring finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("left-ring-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         "Left Little finger" => Command::new("fprintd-enroll")
             .arg("-f")
             .arg("left-little-finger")
-            .spawn()
+            .output()
             .expect("Err"),
         &_ => Command::new("fprintd-enroll")
             .arg("")
-            .spawn()
+            .output()
             .expect("Failed to execute command"),
     };
-    Some(())
+    return Some(String::from_utf8(command.stdout).ok()?);
 }
 
 impl AppModel {
@@ -503,8 +511,10 @@ impl AppModel {
 }
 
 /// The page to display in the application.
+#[derive(Default)]
 pub enum Page {
     Page1,
+    #[default]
     Page2,
     Page3,
     Page4,
