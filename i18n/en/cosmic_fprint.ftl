@@ -1,7 +1,7 @@
 app-title = Cosmic Fprint
 about = About
 view = View
-fprint = Register Fingerprint 🫆
+fprint = Register Fingerprint
 welcome = Register and/or delete fingerprints
 page-id = {$name} finger
 git-description = Git commit {$hash} on {$date}
