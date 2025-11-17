@@ -1,0 +1,2 @@
+0.1.0: First release of cosmic-fprint
+0.2.0: Update dependencies and improve fingerprint enrollment flow by using libfprint-rs 0.3.1
