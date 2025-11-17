@@ -2,6 +2,7 @@
 
 use crate::config::Config;
 use crate::fl;
+use crate::fprint::init_reader;
 use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
@@ -10,6 +11,7 @@ use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
+use libfprint_rs::{FpDevice, FpPrint};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
@@ -57,7 +59,7 @@ impl cosmic::Application for AppModel {
     type Message = Message;
 
     /// Unique identifier in RDNN (reverse domain name notation) format.
-    const APP_ID: &'static str = "me.joonastuomi.CosmicFprint";
+    const APP_ID: &'static str = "fi.joonastuomi.CosmicFprint";
 
     fn core(&self) -> &cosmic::Core {
         &self.core
@@ -72,6 +74,12 @@ impl cosmic::Application for AppModel {
         core: cosmic::Core,
         _flags: Self::Flags,
     ) -> (Self, Task<cosmic::Action<Self::Message>>) {
+        let reader = init_reader();
+        if reader.is_none() {
+            eprintln!("No fingerprint reader found");
+            std::process::exit(1);
+        }
+        let fingerprint_reader: FpDevice = reader.unwrap();
         // Create a nav bar for every fingerprint
         let mut nav = nav_bar::Model::default();
 
