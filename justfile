@@ -1,5 +1,5 @@
 name := 'cosmic-fprint'
-appid := 'me.joonastuomi.CosmicFprint'
+appid := 'fi.joonastuomi.CosmicFprint'
 
 rootdir := ''
 prefix := '/usr'
