@@ -2,7 +2,7 @@
 
 use crate::config::Config;
 use crate::fl;
-use crate::fprint::init_reader;
+use crate::fprint_dbus::{ManagerProxy, DeviceProxy};
 use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
@@ -10,11 +10,9 @@ use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
-use futures_util::SinkExt;
-use libfprint_rs::{FpDevice, FpPrint};
+use futures_util::{SinkExt, StreamExt};
+use futures_util::sink::Sink;
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::process::Command;
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
@@ -32,6 +30,14 @@ pub struct AppModel {
     key_binds: HashMap<menu::KeyBind, MenuAction>,
     // Configuration data that persists between application runs.
     config: Config,
+    // Status text for the UI
+    status: String,
+    // Currently selected device path
+    device_path: Option<zbus::zvariant::OwnedObjectPath>,
+    // Whether an operation is in progress
+    busy: bool,
+    // Finger currently being enrolled (None if not enrolling)
+    enrolling_finger: Option<String>,
 }
 
 /// Messages emitted by the application and its widgets.
@@ -45,6 +51,13 @@ pub enum Message {
     Delete,
     Register,
     Feedback(String),
+    // Async Operation Messages
+    DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
+    OperationError(String),
+    EnrollStatus(String, bool),
+    EnrollComplete,
+    EnrollStop, // Used to manually stop or when done
+    DeleteComplete,
 }
 
 /// Create a COSMIC application from the app model
@@ -74,12 +87,6 @@ impl cosmic::Application for AppModel {
         core: cosmic::Core,
         _flags: Self::Flags,
     ) -> (Self, Task<cosmic::Action<Self::Message>>) {
-        let reader = init_reader();
-        if reader.is_none() {
-            eprintln!("No fingerprint reader found");
-            std::process::exit(1);
-        }
-        let fingerprint_reader: FpDevice = reader.unwrap();
         // Create a nav bar for every fingerprint
         let mut nav = nav_bar::Model::default();
 
@@ -152,16 +159,30 @@ impl cosmic::Application for AppModel {
                     }
                 })
                 .unwrap_or_default(),
+            status: "Searching for fingerprint reader...".to_string(),
+            device_path: None,
+            busy: true,
+            enrolling_finger: None,
         };
 
         // Create a startup command that sets the window title.
         let command = app.update_title();
 
-        (app, command)
+        // Start async task to find device
+        let find_device_task = Task::perform(async move {
+            match find_device().await {
+                Ok(path) => Message::DeviceFound(Some(path)),
+                Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
+            }
+        }, |m| cosmic::Action::App(m));
+
+        (app, command.chain(find_device_task))
     }
 
     /// Elements to pack at the start of the header bar.
     fn header_start(&self) -> Vec<Element<Self::Message>> {
+        // Commented out due to trait bound issues in libcosmic update
+        /*
         let menu_bar = menu::bar(vec![menu::Tree::with_children(
             menu::root(fl!("view")),
             menu::items(
@@ -171,6 +192,8 @@ impl cosmic::Application for AppModel {
         )]);
 
         vec![menu_bar.into()]
+        */
+        vec![]
     }
 
     /// Enables the COSMIC application to create a nav bar with this model.
@@ -198,6 +221,23 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
+        let buttons_enabled = !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
+
+        let register_btn = widget::button::text(fl!("register"));
+        let delete_btn = widget::button::text(fl!("delete"));
+
+        let register_btn = if buttons_enabled {
+            register_btn.on_press(Message::Register)
+        } else {
+            register_btn
+        };
+
+        let delete_btn = if buttons_enabled {
+            delete_btn.on_press(Message::Delete)
+        } else {
+            delete_btn
+        };
+
         widget::column()
             .push(
                 text::title1(fl!("fprint"))
@@ -215,9 +255,16 @@ impl cosmic::Application for AppModel {
                 .height(Length::Fill),
             )
             .push(
+                widget::text(&self.status)
+                    .size(16)
+                    .apply(widget::container)
+                    .width(Length::Fill)
+                    .align_x(Horizontal::Center)
+            )
+            .push(
                 widget::row()
-                    .push(widget::button::text(fl!("register")).on_press(Message::Register))
-                    .push(widget::button::text(fl!("delete")).on_press(Message::Delete))
+                    .push(register_btn)
+                    .push(delete_btn)
                     .apply(widget::container)
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -238,8 +285,9 @@ impl cosmic::Application for AppModel {
     /// beginning of the application, and persist through its lifetime.
     fn subscription(&self) -> Subscription<Self::Message> {
         struct MySubscription;
+        struct EnrollmentSubscription;
 
-        Subscription::batch(vec![
+        let mut subscriptions = vec![
             // Create a subscription which emits updates through a channel.
             Subscription::run_with_id(
                 std::any::TypeId::of::<MySubscription>(),
@@ -259,7 +307,29 @@ impl cosmic::Application for AppModel {
 
                     Message::UpdateConfig(update.config)
                 }),
-        ])
+        ];
+
+        // Add enrollment subscription if enrolling
+        if let (Some(finger_name), Some(device_path)) = (&self.enrolling_finger, &self.device_path) {
+             let finger_name = finger_name.clone();
+             let device_path = device_path.clone();
+
+             subscriptions.push(Subscription::run_with_id(
+                std::any::TypeId::of::<EnrollmentSubscription>(),
+                cosmic::iced::stream::channel(100, move |mut output| async move {
+                    // Implement enrollment stream here
+                    match enroll_fingerprint_process(device_path, finger_name, &mut output).await {
+                         Ok(_) => {},
+                         Err(e) => {
+                             let _ = output.send(Message::OperationError(e.to_string())).await;
+                         }
+                    }
+                    futures_util::future::pending().await
+                })
+             ));
+        }
+
+        Subscription::batch(subscriptions)
     }
 
     /// Handles messages emitted by the application and its widgets.
@@ -268,31 +338,71 @@ impl cosmic::Application for AppModel {
     /// on the application's async runtime.
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
-            Message::Delete => {
-                if let Some(s) = self.nav.text(self.nav.active()) {
-                    if delete_fingerprint(&s).is_none() {
-                        self.dialog();
-                    }
+            Message::DeviceFound(path) => {
+                self.device_path = path;
+                if self.device_path.is_some() {
+                    self.status = "Device found. Ready.".to_string();
+                    self.busy = false;
                 } else {
-                    // No active nav item — show a dialog to inform the user.
-                    self.dialog();
+                    self.status = "No fingerprint reader found.".to_string();
+                    self.busy = true;
+                }
+            }
+            Message::OperationError(err) => {
+                self.status = format!("Error: {}", err);
+                self.busy = false;
+                self.enrolling_finger = None;
+            }
+            Message::EnrollStatus(status, done) => {
+                self.status = format!("Enrolling: {}", status);
+                if done {
+                    self.status = "Enrollment completed successfully.".to_string();
+                    self.busy = false;
+                    self.enrolling_finger = None;
+                }
+            }
+            Message::EnrollComplete => {
+                 self.status = "Enrollment completed.".to_string();
+                 self.busy = false;
+                 self.enrolling_finger = None;
+            }
+            Message::EnrollStop => {
+                 self.busy = false;
+                 self.enrolling_finger = None;
+            }
+            Message::DeleteComplete => {
+                self.status = "Fingerprints deleted.".to_string();
+                self.busy = false;
+            }
+            Message::Delete => {
+                let text = self.nav.text(self.nav.active());
+                let finger_opt: Option<String> = text.map(|s| s.to_string());
+
+                if let Some(s) = finger_opt {
+                    if let Some(path) = self.device_path.clone() {
+                         self.busy = true;
+                         self.status = "Deleting fingerprints...".to_string();
+                         let finger_name = map_finger_name(&s);
+                         return Task::perform(async move {
+                             match delete_fingerprint_dbus(path, finger_name).await {
+                                 Ok(_) => Message::DeleteComplete,
+                                 Err(e) => Message::OperationError(e.to_string()),
+                             }
+                         }, |m| cosmic::Action::App(m));
+                    }
                 }
             }
             Message::Register => {
-                if let Some(s) = self.nav.text(self.nav.active()) {
-                    match register_fingerprint(&s) {
-                        None => {
-                            // Registration failed or nothing selected — show dialog.
-                            self.dialog();
-                        }
-                        Some(output) => {
-                            // Print feedback for now (could be shown in a dialog).
-                            println!("{}", output);
-                        }
+                let text = self.nav.text(self.nav.active());
+                let finger_opt: Option<String> = text.map(|s| s.to_string());
+
+                if let Some(s) = finger_opt {
+                    if let Some(_) = &self.device_path {
+                         self.busy = true;
+                         self.status = "Starting enrollment...".to_string();
+                         self.enrolling_finger = Some(map_finger_name(&s));
+                         // The subscription will pick this up automatically
                     }
-                } else {
-                    // No active nav item — show a dialog to inform the user.
-                    self.dialog();
                 }
             }
             Message::OpenRepositoryUrl => {
@@ -315,8 +425,7 @@ impl cosmic::Application for AppModel {
             }
 
             Message::Feedback(feedback) => {
-                // Log or print feedback rather than creating a widget here.
-                println!("{}", feedback);
+                self.status = feedback;
             }
 
             Message::UpdateConfig(config) => {
@@ -340,130 +449,6 @@ impl cosmic::Application for AppModel {
 
         self.update_title()
     }
-}
-
-/// Delete a fingerprint based on tab open.
-fn delete_fingerprint(id: &str) -> Option<()> {
-    if id.is_empty() {
-        return None;
-    }
-    let mut str = id.replace("\u{2069}", "");
-    str = str.replace("\u{2068}", "");
-
-    let command = match str.as_str() {
-        "Right Thumb finger" => Command::new("fprintd-delete")
-            .arg("right-thumb")
-            .output()
-            .expect("Err"),
-        "Right Index finger" => Command::new("fprintd-delete")
-            .arg("right-index-finger")
-            .output()
-            .expect("Err"),
-        "Right Middle finger" => Command::new("fprintd-delete")
-            .arg("right-middle-finger")
-            .output()
-            .expect("Err"),
-        "Right Ring finger" => Command::new("fprintd-delete")
-            .arg("right-ring-finger")
-            .output()
-            .expect("Err"),
-        "Right Little finger" => Command::new("fprintd-delete")
-            .arg("right-little-finger")
-            .output()
-            .expect("Err"),
-        "Left Thumb finger" => Command::new("fprintd-delete")
-            .arg("left-thumb")
-            .output()
-            .expect("Err"),
-        "Left Index finger" => Command::new("fprintd-delete")
-            .arg("left-index-finger")
-            .output()
-            .expect("Err"),
-        "Left Middle finger" => Command::new("fprintd-delete")
-            .arg("left-middle-finger")
-            .output()
-            .expect("Err"),
-        "Left Ring finger" => Command::new("fprintd-delete")
-            .arg("left-ring-finger")
-            .output()
-            .expect("Err"),
-        "Left Little finger" => Command::new("fprintd-delete")
-            .arg("left-little-finger")
-            .output()
-            .expect("Err"),
-        &_ => Command::new("fprintd-delete").output().expect("Err"),
-    };
-    Message::Feedback(String::from_utf8(command.stdout).unwrap());
-
-    Some(())
-}
-
-/// Register a fingerprint based on the tab selected
-pub fn register_fingerprint(id: &str) -> Option<String> {
-    if id.is_empty() {
-        return None;
-    }
-    let mut str = id.replace("\u{2069}", "");
-    str = str.replace("\u{2068}", "");
-    println!("{}", str);
-
-    let command = match str.as_str() {
-        "Right Thumb finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("right-thumb")
-            .output()
-            .expect("Err"),
-        "Right Index finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("right-index-finger")
-            .output()
-            .expect("Err"),
-        "Right Middle finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("right-middle-finger")
-            .output()
-            .expect("Err"),
-        "Right Ring finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("right-ring-finger")
-            .output()
-            .expect("Err"),
-        "Right Little finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("right-little-finger")
-            .output()
-            .expect("Err"),
-        "Left Thumb finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("left-thumb")
-            .output()
-            .expect("Err"),
-        "Left Index finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("left-index-finger")
-            .output()
-            .expect("Err"),
-        "Left Middle finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("left-middle-finger")
-            .output()
-            .expect("Err"),
-        "Left Ring finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("left-ring-finger")
-            .output()
-            .expect("Err"),
-        "Left Little finger" => Command::new("fprintd-enroll")
-            .arg("-f")
-            .arg("left-little-finger")
-            .output()
-            .expect("Err"),
-        &_ => Command::new("fprintd-enroll")
-            .arg("")
-            .output()
-            .expect("Failed to execute command"),
-    };
-    return Some(String::from_utf8(command.stdout).ok()?);
 }
 
 impl AppModel {
@@ -516,6 +501,98 @@ impl AppModel {
             Task::none()
         }
     }
+}
+
+
+// Map the UI finger name to fprintd finger name
+fn map_finger_name(name: &str) -> String {
+    let mut str = name.replace("\u{2069}", "");
+    str = str.replace("\u{2068}", "");
+    match str.as_str() {
+        "Right Thumb finger" => "right-thumb",
+        "Right Index finger" => "right-index-finger",
+        "Right Middle finger" => "right-middle-finger",
+        "Right Ring finger" => "right-ring-finger",
+        "Right Little finger" => "right-little-finger",
+        "Left Thumb finger" => "left-thumb",
+        "Left Index finger" => "left-index-finger",
+        "Left Middle finger" => "left-middle-finger",
+        "Left Ring finger" => "left-ring-finger",
+        "Left Little finger" => "left-little-finger",
+        _ => "any",
+    }.to_string()
+}
+
+async fn find_device() -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
+    let connection = zbus::Connection::system().await?;
+    let manager = ManagerProxy::new(&connection).await?;
+    let device = manager.get_default_device().await?;
+    Ok(device)
+}
+
+async fn delete_fingerprint_dbus(path: zbus::zvariant::OwnedObjectPath, _finger: String) -> zbus::Result<()> {
+    let connection = zbus::Connection::system().await?;
+    let device = DeviceProxy::builder(&connection).path(path)?.build().await?;
+
+    device.claim("").await?;
+    device.delete_enrolled_fingers("").await?;
+    device.release().await?;
+    Ok(())
+}
+
+async fn enroll_fingerprint_process<S>(
+    path: zbus::zvariant::OwnedObjectPath,
+    finger_name: String,
+    output: &mut S
+) -> zbus::Result<()>
+where S: Sink<Message> + Unpin + Send,
+      S::Error: std::fmt::Debug + Send
+{
+    let connection = zbus::Connection::system().await?;
+    let device = DeviceProxy::builder(&connection).path(path)?.build().await?;
+
+    // Claim device
+    match device.claim("").await {
+        Ok(_) => {},
+        Err(e) => return Err(e),
+    };
+
+    // Start enrollment
+    if let Err(e) = device.enroll_start(&finger_name).await {
+        let _ = device.release().await;
+        return Err(e);
+    }
+
+    // Listen for signals
+    let mut stream = device.receive_enroll_status().await?;
+
+    while let Some(signal) = stream.next().await {
+        let args = signal.args();
+        match args {
+            Ok(args) => {
+                 let result: String = args.result;
+                 let done: bool = args.done;
+
+                 // Map result string to user friendly message if needed, or pass through
+                 let _ = output.send(Message::EnrollStatus(result.clone(), done)).await;
+
+                 if done {
+                     break;
+                 }
+            },
+            Err(_) => {
+                let _ = output.send(Message::OperationError("Failed to parse signal".to_string())).await;
+                break;
+            }
+        }
+    }
+
+    // Release device
+    let _ = device.release().await;
+
+    let _ = output.send(Message::EnrollComplete).await;
+
+    Ok(())
 }
 
 /// The page to display in the application.
