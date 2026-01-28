@@ -1,6 +1,26 @@
 # Cosmic Fprint
 
-COSMIC™ GUI for fprintd fingerprint enrolling
+COSMIC™ GUI for fprintd fingerprint enrolling.
+
+## Prerequisites
+
+You're using Linux, or compatible system, with a supported fingerprint scanner. Works best with COSMIC DE, tested only with Pop!_OS.
+
+## Usage
+
+Choose which finger to register or delete from menu. Click the action you want to take. Prompts you for your password. If you don't have correct rights or incorrect password your attempt will be dismissed.
+
+Small video registering fingerprint:
+[google_screen_recording_2026-01-28T11-02_01.789Z.webm](https://github.com/user-attachments/assets/f12d923b-a290-4e45-94bd-aa39f6ed6782)
+
+## Todos
+
+- Improve feedback given to user. Currently prints what daemon returns.
+- Add a user dropdown to make it possible for admin to register for other users.
+- Get project into cosmic-utils.
+- Package & distribute, most likely as a flatpak, but maybe as a deb package also.
+- Sherlock the application by adding all functionality directly into cosmic-settings.
+
 
 ## Installation
 
