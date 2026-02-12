@@ -632,3 +632,30 @@ impl menu::action::MenuAction for MenuAction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_finger_name() {
+        assert_eq!(map_finger_name("Right Thumb finger"), "right-thumb");
+        assert_eq!(map_finger_name("Right Index finger"), "right-index-finger");
+        assert_eq!(map_finger_name("Right Middle finger"), "right-middle-finger");
+        assert_eq!(map_finger_name("Right Ring finger"), "right-ring-finger");
+        assert_eq!(map_finger_name("Right Little finger"), "right-little-finger");
+        assert_eq!(map_finger_name("Left Thumb finger"), "left-thumb");
+        assert_eq!(map_finger_name("Left Index finger"), "left-index-finger");
+        assert_eq!(map_finger_name("Left Middle finger"), "left-middle-finger");
+        assert_eq!(map_finger_name("Left Ring finger"), "left-ring-finger");
+        assert_eq!(map_finger_name("Left Little finger"), "left-little-finger");
+        assert_eq!(map_finger_name("Some random string"), "any");
+    }
+
+    #[test]
+    fn test_map_finger_name_bidi() {
+        assert_eq!(map_finger_name("\u{2068}Right Thumb finger\u{2069}"), "right-thumb");
+        assert_eq!(map_finger_name("\u{2068}Left Index finger"), "left-index-finger");
+        assert_eq!(map_finger_name("Right Ring finger\u{2069}"), "right-ring-finger");
+    }
+}
