@@ -92,52 +92,52 @@ impl cosmic::Application for AppModel {
 
         nav.insert()
             .text(fl!("page-id", name = "Right Thumb"))
-            .data::<Page>(Page::Page1)
+            .data::<Page>(Page::RightThumb)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Right Index"))
-            .data::<Page>(Page::Page2)
+            .data::<Page>(Page::RightIndex)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Right Middle"))
-            .data::<Page>(Page::Page3)
+            .data::<Page>(Page::RightMiddle)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Right Ring"))
-            .data::<Page>(Page::Page4)
+            .data::<Page>(Page::RightRing)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Right Pinky"))
-            .data::<Page>(Page::Page5)
+            .data::<Page>(Page::RightPinky)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Left Thumb"))
-            .data::<Page>(Page::Page6)
+            .data::<Page>(Page::LeftThumb)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Left Index"))
-            .data::<Page>(Page::Page7)
+            .data::<Page>(Page::LeftIndex)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Left Middle"))
-            .data::<Page>(Page::Page8)
+            .data::<Page>(Page::LeftMiddle)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Left Ring"))
-            .data::<Page>(Page::Page9)
+            .data::<Page>(Page::LeftRing)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         nav.insert()
             .text(fl!("page-id", name = "Left Pinky"))
-            .data::<Page>(Page::Page10)
+            .data::<Page>(Page::LeftPinky)
             .icon(icon::from_name("applications-utilities-symbolic"));
 
         // Construct the app model with the runtime's core.
@@ -380,36 +380,27 @@ impl cosmic::Application for AppModel {
                 self.busy = false;
             }
             Message::Delete => {
-                let text = self.nav.text(self.nav.active());
-                let finger_opt: Option<String> = text.map(|s| s.to_string());
-
-                if let Some(s) = finger_opt {
+                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
                     if let Some(path) = self.device_path.clone() {
-                        self.busy = true;
-                        self.status = "Deleting fingerprints...".to_string();
-                        let finger_name = map_finger_name(&s);
-                        return Task::perform(
-                            async move {
-                                match delete_fingerprint_dbus(path, finger_name).await {
-                                    Ok(_) => Message::DeleteComplete,
-                                    Err(e) => Message::OperationError(e.to_string()),
-                                }
-                            },
-                            |m| cosmic::Action::App(m),
-                        );
+                         self.busy = true;
+                         self.status = "Deleting fingerprints...".to_string();
+                         let finger_name = page.as_finger_id().to_string();
+                         return Task::perform(async move {
+                             match delete_fingerprint_dbus(path, finger_name).await {
+                                 Ok(_) => Message::DeleteComplete,
+                                 Err(e) => Message::OperationError(e.to_string()),
+                             }
+                         }, |m| cosmic::Action::App(m));
                     }
                 }
             }
             Message::Register => {
-                let text = self.nav.text(self.nav.active());
-                let finger_opt: Option<String> = text.map(|s| s.to_string());
-
-                if let Some(s) = finger_opt {
+                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
                     if let Some(_) = &self.device_path {
-                        self.busy = true;
-                        self.status = "Starting enrollment...".to_string();
-                        self.enrolling_finger = Some(map_finger_name(&s));
-                        // The subscription will pick this up automatically
+                         self.busy = true;
+                         self.status = "Starting enrollment...".to_string();
+                         self.enrolling_finger = Some(page.as_finger_id().to_string());
+                         // The subscription will pick this up automatically
                     }
                 }
             }
@@ -511,25 +502,6 @@ impl AppModel {
     }
 }
 
-// Map the UI finger name to fprintd finger name
-fn map_finger_name(name: &str) -> String {
-    let mut str = name.replace("\u{2069}", "");
-    str = str.replace("\u{2068}", "");
-    match str.as_str() {
-        "Right Thumb finger" => "right-thumb",
-        "Right Index finger" => "right-index-finger",
-        "Right Middle finger" => "right-middle-finger",
-        "Right Ring finger" => "right-ring-finger",
-        "Right Little finger" => "right-little-finger",
-        "Left Thumb finger" => "left-thumb",
-        "Left Index finger" => "left-index-finger",
-        "Left Middle finger" => "left-middle-finger",
-        "Left Ring finger" => "left-ring-finger",
-        "Left Little finger" => "left-little-finger",
-        _ => "any",
-    }
-    .to_string()
-}
 
 async fn find_device() -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
     let connection = zbus::Connection::system().await?;
@@ -620,19 +592,36 @@ where
 }
 
 /// The page to display in the application.
-#[derive(Default)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
-    Page1,
+    RightThumb,
     #[default]
-    Page2,
-    Page3,
-    Page4,
-    Page5,
-    Page6,
-    Page7,
-    Page8,
-    Page9,
-    Page10,
+    RightIndex,
+    RightMiddle,
+    RightRing,
+    RightPinky,
+    LeftThumb,
+    LeftIndex,
+    LeftMiddle,
+    LeftRing,
+    LeftPinky,
+}
+
+impl Page {
+    fn as_finger_id(&self) -> &'static str {
+        match self {
+            Page::RightThumb => "right-thumb",
+            Page::RightIndex => "right-index-finger",
+            Page::RightMiddle => "right-middle-finger",
+            Page::RightRing => "right-ring-finger",
+            Page::RightPinky => "right-little-finger",
+            Page::LeftThumb => "left-thumb",
+            Page::LeftIndex => "left-index-finger",
+            Page::LeftMiddle => "left-middle-finger",
+            Page::LeftRing => "left-ring-finger",
+            Page::LeftPinky => "left-little-finger",
+        }
+    }
 }
 
 /// The context page to display in the context drawer.
@@ -657,44 +646,3 @@ impl menu::action::MenuAction for MenuAction {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_map_finger_name() {
-        assert_eq!(map_finger_name("Right Thumb finger"), "right-thumb");
-        assert_eq!(map_finger_name("Right Index finger"), "right-index-finger");
-        assert_eq!(
-            map_finger_name("Right Middle finger"),
-            "right-middle-finger"
-        );
-        assert_eq!(map_finger_name("Right Ring finger"), "right-ring-finger");
-        assert_eq!(
-            map_finger_name("Right Little finger"),
-            "right-little-finger"
-        );
-        assert_eq!(map_finger_name("Left Thumb finger"), "left-thumb");
-        assert_eq!(map_finger_name("Left Index finger"), "left-index-finger");
-        assert_eq!(map_finger_name("Left Middle finger"), "left-middle-finger");
-        assert_eq!(map_finger_name("Left Ring finger"), "left-ring-finger");
-        assert_eq!(map_finger_name("Left Little finger"), "left-little-finger");
-        assert_eq!(map_finger_name("Some random string"), "any");
-    }
-
-    #[test]
-    fn test_map_finger_name_bidi() {
-        assert_eq!(
-            map_finger_name("\u{2068}Right Thumb finger\u{2069}"),
-            "right-thumb"
-        );
-        assert_eq!(
-            map_finger_name("\u{2068}Left Index finger"),
-            "left-index-finger"
-        );
-        assert_eq!(
-            map_finger_name("Right Ring finger\u{2069}"),
-            "right-ring-finger"
-        );
-    }
-}
