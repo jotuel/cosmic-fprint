@@ -2,7 +2,7 @@
 
 use crate::config::Config;
 use crate::fl;
-use crate::fprint_dbus::{ManagerProxy, DeviceProxy};
+use crate::fprint_dbus::{DeviceProxy, ManagerProxy};
 use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
@@ -10,8 +10,8 @@ use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
-use futures_util::{SinkExt, StreamExt};
 use futures_util::sink::Sink;
+use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
@@ -169,12 +169,15 @@ impl cosmic::Application for AppModel {
         let command = app.update_title();
 
         // Start async task to find device
-        let find_device_task = Task::perform(async move {
-            match find_device().await {
-                Ok(path) => Message::DeviceFound(Some(path)),
-                Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
-            }
-        }, |m| cosmic::Action::App(m));
+        let find_device_task = Task::perform(
+            async move {
+                match find_device().await {
+                    Ok(path) => Message::DeviceFound(Some(path)),
+                    Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
+                }
+            },
+            |m| cosmic::Action::App(m),
+        );
 
         (app, command.chain(find_device_task))
     }
@@ -221,7 +224,8 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
-        let buttons_enabled = !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
+        let buttons_enabled =
+            !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
 
         let register_btn = widget::button::text(fl!("register"));
         let delete_btn = widget::button::text(fl!("delete"));
@@ -259,7 +263,7 @@ impl cosmic::Application for AppModel {
                     .size(16)
                     .apply(widget::container)
                     .width(Length::Fill)
-                    .align_x(Horizontal::Center)
+                    .align_x(Horizontal::Center),
             )
             .push(
                 widget::row()
@@ -310,23 +314,24 @@ impl cosmic::Application for AppModel {
         ];
 
         // Add enrollment subscription if enrolling
-        if let (Some(finger_name), Some(device_path)) = (&self.enrolling_finger, &self.device_path) {
-             let finger_name = finger_name.clone();
-             let device_path = device_path.clone();
+        if let (Some(finger_name), Some(device_path)) = (&self.enrolling_finger, &self.device_path)
+        {
+            let finger_name = finger_name.clone();
+            let device_path = device_path.clone();
 
-             subscriptions.push(Subscription::run_with_id(
+            subscriptions.push(Subscription::run_with_id(
                 std::any::TypeId::of::<EnrollmentSubscription>(),
                 cosmic::iced::stream::channel(100, move |mut output| async move {
                     // Implement enrollment stream here
                     match enroll_fingerprint_process(device_path, finger_name, &mut output).await {
-                         Ok(_) => {},
-                         Err(e) => {
-                             let _ = output.send(Message::OperationError(e.to_string())).await;
-                         }
+                        Ok(_) => {}
+                        Err(e) => {
+                            let _ = output.send(Message::OperationError(e.to_string())).await;
+                        }
                     }
                     futures_util::future::pending().await
-                })
-             ));
+                }),
+            ));
         }
 
         Subscription::batch(subscriptions)
@@ -362,16 +367,16 @@ impl cosmic::Application for AppModel {
                 }
             }
             Message::EnrollComplete => {
-                 self.status = "Enrollment completed.".to_string();
-                 self.busy = false;
-                 self.enrolling_finger = None;
+                self.status = "Enrollment completed.".to_string();
+                self.busy = false;
+                self.enrolling_finger = None;
             }
             Message::EnrollStop => {
-                 self.busy = false;
-                 self.enrolling_finger = None;
+                self.busy = false;
+                self.enrolling_finger = None;
             }
             Message::DeleteComplete => {
-                self.status = "Fingerprints deleted.".to_string();
+                self.status = "Fingerprint was deleted.".to_string();
                 self.busy = false;
             }
             Message::Delete => {
@@ -505,12 +510,18 @@ async fn find_device() -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
     Ok(device)
 }
 
-async fn delete_fingerprint_dbus(path: zbus::zvariant::OwnedObjectPath, _finger: String) -> zbus::Result<()> {
+async fn delete_fingerprint_dbus(
+    path: zbus::zvariant::OwnedObjectPath,
+    finger: String,
+) -> zbus::Result<()> {
     let connection = zbus::Connection::system().await?;
-    let device = DeviceProxy::builder(&connection).path(path)?.build().await?;
+    let device = DeviceProxy::builder(&connection)
+        .path(path)?
+        .build()
+        .await?;
 
     device.claim("").await?;
-    device.delete_enrolled_fingers("").await?;
+    device.delete_enrolled_finger(&finger).await?;
     device.release().await?;
     Ok(())
 }
@@ -518,17 +529,21 @@ async fn delete_fingerprint_dbus(path: zbus::zvariant::OwnedObjectPath, _finger:
 async fn enroll_fingerprint_process<S>(
     path: zbus::zvariant::OwnedObjectPath,
     finger_name: String,
-    output: &mut S
+    output: &mut S,
 ) -> zbus::Result<()>
-where S: Sink<Message> + Unpin + Send,
-      S::Error: std::fmt::Debug + Send
+where
+    S: Sink<Message> + Unpin + Send,
+    S::Error: std::fmt::Debug + Send,
 {
     let connection = zbus::Connection::system().await?;
-    let device = DeviceProxy::builder(&connection).path(path)?.build().await?;
+    let device = DeviceProxy::builder(&connection)
+        .path(path)?
+        .build()
+        .await?;
 
     // Claim device
     match device.claim("").await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => return Err(e),
     };
 
@@ -545,18 +560,24 @@ where S: Sink<Message> + Unpin + Send,
         let args = signal.args();
         match args {
             Ok(args) => {
-                 let result: String = args.result;
-                 let done: bool = args.done;
+                let result: String = args.result;
+                let done: bool = args.done;
 
-                 // Map result string to user friendly message if needed, or pass through
-                 let _ = output.send(Message::EnrollStatus(result.clone(), done)).await;
+                // Map result string to user friendly message if needed, or pass through
+                let _ = output
+                    .send(Message::EnrollStatus(result.clone(), done))
+                    .await;
 
-                 if done {
-                     break;
-                 }
-            },
+                if done {
+                    break;
+                }
+            }
             Err(_) => {
-                let _ = output.send(Message::OperationError("Failed to parse signal".to_string())).await;
+                let _ = output
+                    .send(Message::OperationError(
+                        "Failed to parse signal".to_string(),
+                    ))
+                    .await;
                 break;
             }
         }
