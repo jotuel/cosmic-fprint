@@ -180,11 +180,9 @@ impl cosmic::Application for AppModel {
     }
 
     /// Elements to pack at the start of the header bar.
-    fn header_start(&self) -> Vec<Element<Self::Message>> {
-        // Commented out due to trait bound issues in libcosmic update
-        /*
+    fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
         let menu_bar = menu::bar(vec![menu::Tree::with_children(
-            menu::root(fl!("view")),
+            Element::from(menu::root(fl!("view"))),
             menu::items(
                 &self.key_binds,
                 vec![menu::Item::Button(fl!("about"), None, MenuAction::About)],
@@ -192,8 +190,6 @@ impl cosmic::Application for AppModel {
         )]);
 
         vec![menu_bar.into()]
-        */
-        vec![]
     }
 
     /// Enables the COSMIC application to create a nav bar with this model.
@@ -202,7 +198,7 @@ impl cosmic::Application for AppModel {
     }
 
     /// Display a context drawer if the context page is requested.
-    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Self::Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<'_, Self::Message>> {
         if !self.core.window.show_context {
             return None;
         }
@@ -220,7 +216,7 @@ impl cosmic::Application for AppModel {
     ///
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         let buttons_enabled = !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
 
         let register_btn = widget::button::text(fl!("register"));
@@ -453,7 +449,7 @@ impl cosmic::Application for AppModel {
 
 impl AppModel {
     /// The about page for this app.
-    pub fn about(&self) -> Element<Message> {
+    pub fn about(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = theme::active().cosmic().spacing;
 
         let icon = widget::svg(widget::svg::Handle::from_memory(APP_ICON));
