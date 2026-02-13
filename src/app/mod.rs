@@ -2,7 +2,7 @@
 
 use crate::config::Config;
 use crate::fl;
-use crate::fprint_dbus::{DeviceProxy, ManagerProxy};
+use crate::fprint_dbus::DeviceProxy;
 use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
@@ -10,12 +10,19 @@ use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
-use futures_util::sink::Sink;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::SinkExt;
 use std::collections::HashMap;
 
+pub mod page;
+pub mod message;
+pub mod fprint;
+
+use page::{ContextPage, Page};
+use message::Message;
+use fprint::{delete_fingerprint_dbus, enroll_fingerprint_process, find_device};
+
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
-const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
+const APP_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/icon.svg");
 
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
@@ -43,26 +50,6 @@ pub struct AppModel {
     // Enrollment progress
     enroll_progress: i32,
     enroll_total_stages: i32,
-}
-
-/// Messages emitted by the application and its widgets.
-#[derive(Debug, Clone)]
-pub enum Message {
-    OpenRepositoryUrl,
-    ToggleContextPage(ContextPage),
-    UpdateConfig(Config),
-    LaunchUrl(String),
-    Delete,
-    Register,
-    ConnectionReady(zbus::Connection),
-    DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
-    OperationError(String),
-    EnrollStart(i32),
-    EnrollStatus(String, bool),
-    EnrollStop,
-    EnrollStopSuccess,
-    DeleteComplete,
-    DeleteFailed(String),
 }
 
 /// Create a COSMIC application from the app model
@@ -620,189 +607,9 @@ impl AppModel {
     }
 }
 
-async fn find_device(
-    connection: &zbus::Connection,
-) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
-    let manager = ManagerProxy::new(connection).await?;
-    let device = manager.get_default_device().await?;
-    Ok(device)
-}
-
-async fn delete_fingerprint_dbus(
-    connection: &zbus::Connection,
-    path: zbus::zvariant::OwnedObjectPath,
-    finger: String,
-) -> zbus::Result<()> {
-    let device = DeviceProxy::builder(connection).path(path)?.build().await?;
-
-    device.claim("").await?;
-    device.delete_enrolled_finger(&finger).await?;
-    device.release().await?;
-    Ok(())
-}
-
-async fn enroll_fingerprint_process<S>(
-    connection: zbus::Connection,
-    path: zbus::zvariant::OwnedObjectPath,
-    finger_name: String,
-    output: &mut S,
-) -> zbus::Result<()>
-where
-    S: Sink<Message> + Unpin + Send,
-    S::Error: std::fmt::Debug + Send,
-{
-    let device = DeviceProxy::builder(&connection)
-        .path(path)?
-        .build()
-        .await?;
-
-    // Claim device
-    match device.claim("").await {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    };
-
-    let total_stages = device.num_enroll_stages().await.unwrap_or(-1);
-    let _ = output.send(Message::EnrollStart(total_stages)).await;
-
-    // Start enrollment
-    if let Err(e) = device.enroll_start(&finger_name).await {
-        let _ = device.release().await;
-        return Err(e);
-    }
-
-    // Listen for signals
-    let mut stream = device.receive_enroll_status().await?;
-
-    while let Some(signal) = stream.next().await {
-        let args = signal.args();
-        match args {
-            Ok(args) => {
-                let result: String = args.result;
-                let done: bool = args.done;
-
-                // Map result string to user friendly message if needed, or pass through
-                let _ = output
-                    .send(Message::EnrollStatus(result.clone(), done))
-                    .await;
-
-                if done {
-                    break;
-                }
-            }
-            Err(_) => {
-                let _ = output
-                    .send(Message::OperationError(
-                        "Failed to parse signal".to_string(),
-                    ))
-                    .await;
-                break;
-            }
-        }
-    }
-
-    // Release device
-    let _ = device.release().await;
-
-    Ok(())
-}
-
-/// The page to display in the application.
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Page {
-    RightThumb,
-    #[default]
-    RightIndex,
-    RightMiddle,
-    RightRing,
-    RightPinky,
-    LeftThumb,
-    LeftIndex,
-    LeftMiddle,
-    LeftRing,
-    LeftPinky,
-}
-
-impl Page {
-    pub fn all() -> &'static [Self] {
-        &[
-            Self::RightThumb,
-            Self::RightIndex,
-            Self::RightMiddle,
-            Self::RightRing,
-            Self::RightPinky,
-            Self::LeftThumb,
-            Self::LeftIndex,
-            Self::LeftMiddle,
-            Self::LeftRing,
-            Self::LeftPinky,
-        ]
-    }
-
-    fn localized_name(&self) -> String {
-        match self {
-            Self::RightThumb => fl!("page-right-thumb"),
-            Self::RightIndex => fl!("page-right-index-finger"),
-            Self::RightMiddle => fl!("page-right-middle-finger"),
-            Self::RightRing => fl!("page-right-ring-finger"),
-            Self::RightPinky => fl!("page-right-little-finger"),
-            Self::LeftThumb => fl!("page-left-thumb"),
-            Self::LeftIndex => fl!("page-left-index-finger"),
-            Self::LeftMiddle => fl!("page-left-middle-finger"),
-            Self::LeftRing => fl!("page-left-ring-finger"),
-            Self::LeftPinky => fl!("page-left-little-finger"),
-        }
-    }
-
-    fn as_finger_id(&self) -> &'static str {
-        match self {
-            Page::RightThumb => "right-thumb",
-            Page::RightIndex => "right-index-finger",
-            Page::RightMiddle => "right-middle-finger",
-            Page::RightRing => "right-ring-finger",
-            Page::RightPinky => "right-little-finger",
-            Page::LeftThumb => "left-thumb",
-            Page::LeftIndex => "left-index-finger",
-            Page::LeftMiddle => "left-middle-finger",
-            Page::LeftRing => "left-ring-finger",
-            Page::LeftPinky => "left-little-finger",
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_page_all() {
-        let pages = Page::all();
-        assert_eq!(pages.len(), 10);
-        assert_eq!(pages[0], Page::RightThumb);
-        assert_eq!(pages[1], Page::RightIndex);
-        assert_eq!(pages[2], Page::RightMiddle);
-        assert_eq!(pages[3], Page::RightRing);
-        assert_eq!(pages[4], Page::RightPinky);
-        assert_eq!(pages[5], Page::LeftThumb);
-        assert_eq!(pages[6], Page::LeftIndex);
-        assert_eq!(pages[7], Page::LeftMiddle);
-        assert_eq!(pages[8], Page::LeftRing);
-        assert_eq!(pages[9], Page::LeftPinky);
-    }
-
-    #[test]
-    fn test_page_localized_name() {
-        assert_eq!(Page::RightThumb.localized_name(), "Right Thumb");
-        assert_eq!(Page::RightIndex.localized_name(), "Right Index Finger");
-        assert_eq!(Page::RightMiddle.localized_name(), "Right Middle Finger");
-        assert_eq!(Page::RightRing.localized_name(), "Right Ring Finger");
-        assert_eq!(Page::RightPinky.localized_name(), "Right Little Finger");
-        assert_eq!(Page::LeftThumb.localized_name(), "Left Thumb");
-        assert_eq!(Page::LeftIndex.localized_name(), "Left Index Finger");
-        assert_eq!(Page::LeftMiddle.localized_name(), "Left Middle Finger");
-        assert_eq!(Page::LeftRing.localized_name(), "Left Ring Finger");
-        assert_eq!(Page::LeftPinky.localized_name(), "Left Little Finger");
-    }
 
     #[test]
     fn test_map_error() {
@@ -827,13 +634,6 @@ mod tests {
             "Fingerprint device not found."
         );
     }
-}
-
-/// The context page to display in the context drawer.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub enum ContextPage {
-    #[default]
-    About,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

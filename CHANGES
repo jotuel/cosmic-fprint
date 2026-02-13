@@ -1,2 +1,7 @@
 0.1.0: First release of cosmic-fprint
 0.2.0: Update dependencies and improve fingerprint enrollment flow by using libfprint-rs 0.3.1
+0.3.0: Switch to using D-Bus and net.reactived.Fprint
+0.3.1: Better localization for responses from the daemon
+0.3.2: Improved error responses
+0.3.3: Refactored init to use loops
+0.3.4: Added Flatpak
