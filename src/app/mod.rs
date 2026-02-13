@@ -464,33 +464,32 @@ impl cosmic::Application for AppModel {
             }
 
             Message::Delete => {
-                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
-                    if let (Some(path), Some(conn)) =
+                if let Some(page) = self.nav.data::<Page>(self.nav.active())
+                    && let (Some(path), Some(conn)) =
                         (self.device_path.clone(), self.connection.clone())
-                    {
-                        self.busy = true;
-                        let finger_name = page.as_finger_id().to_string();
-                        self.status = format!("Deleting fingerprint {}", finger_name);
-                        return Task::perform(
-                            async move {
-                                match delete_fingerprint_dbus(&conn, path, finger_name).await {
-                                    Ok(_) => Message::DeleteComplete,
-                                    Err(e) => Message::DeleteFailed(e.to_string()),
-                                }
-                            },
-                            |m| cosmic::Action::App(m),
-                        );
-                    }
+                {
+                    self.busy = true;
+                    let finger_name = page.as_finger_id().to_string();
+                    self.status = format!("Deleting fingerprint {}", finger_name);
+                    return Task::perform(
+                        async move {
+                            match delete_fingerprint_dbus(&conn, path, finger_name).await {
+                                Ok(_) => Message::DeleteComplete,
+                                Err(e) => Message::DeleteFailed(e.to_string()),
+                            }
+                        },
+                        cosmic::Action::App,
+                    );
                 }
             }
 
             Message::Register => {
-                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
-                    if let Some(_) = &self.device_path {
-                        self.busy = true;
-                        self.status = "Starting enrollment...".to_string();
-                        self.enrolling_finger = Some(page.as_finger_id().to_string());
-                    }
+                if let Some(page) = self.nav.data::<Page>(self.nav.active())
+                    && self.device_path.is_some()
+                {
+                    self.busy = true;
+                    self.status = "Starting enrollment...".to_string();
+                    self.enrolling_finger = Some(page.as_finger_id().to_string());
                 }
             }
 
