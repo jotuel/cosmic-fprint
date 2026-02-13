@@ -52,14 +52,12 @@ pub enum Message {
     LaunchUrl(String),
     Delete,
     Register,
-    Feedback(String),
-    // Async Operation Messages
     ConnectionReady(zbus::Connection),
     DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
     OperationError(String),
     EnrollStatus(String, bool),
     EnrollComplete,
-    EnrollStop, // Used to manually stop or when done
+    EnrollStop,
     DeleteComplete,
 }
 
@@ -110,10 +108,10 @@ impl cosmic::Application for AppModel {
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {
                     Ok(config) => config,
-                    Err((_errors, config)) => {
-                        // for why in errors {
-                        //     tracing::error!(%why, "error loading app config");
-                        // }
+                    Err((errors, config)) => {
+                        for why in errors {
+                            tracing::error!(%why, "error loading app config");
+                        }
 
                         config
                     }
@@ -397,10 +395,6 @@ impl cosmic::Application for AppModel {
 
             Message::OpenRepositoryUrl => {
                 let _ = open::that_detached(REPOSITORY);
-            }
-
-            Message::SubscriptionChannel => {
-                // For example purposes only.
             }
 
             Message::ToggleContextPage(context_page) => {

@@ -6,6 +6,7 @@ mod fprint_dbus;
 mod i18n;
 
 extern crate zbus;
+extern crate tracing;
 
 fn main() -> cosmic::iced::Result {
     // Get the system's preferred languages.

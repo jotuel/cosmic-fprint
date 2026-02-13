@@ -1040,6 +1040,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "tokio",
+ "tracing",
  "vergen",
  "zbus 5.12.0",
 ]
