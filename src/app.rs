@@ -59,10 +59,10 @@ pub enum Message {
     OperationError(String),
     EnrollStart(i32),
     EnrollStatus(String, bool),
-    EnrollComplete,
     EnrollStop,
     EnrollStopSuccess,
     DeleteComplete,
+    DeleteFailed(String),
 }
 
 /// Create a COSMIC application from the app model
@@ -286,9 +286,9 @@ impl cosmic::Application for AppModel {
             self.core()
                 .watch_config::<Config>(Self::APP_ID)
                 .map(|update| {
-                    // for why in update.errors {
-                    //     tracing::error!(?why, "app config error");
-                    // }
+                    for why in update.errors {
+                        tracing::error!(?why, "app config error");
+                    }
 
                     Message::UpdateConfig(update.config)
                 }),
@@ -362,7 +362,7 @@ impl cosmic::Application for AppModel {
             }
 
             Message::OperationError(err) => {
-                self.status = format!("Error: {}", err);
+                self.status = Self::map_error(&err);
                 self.busy = false;
                 self.enrolling_finger = None;
             }
@@ -388,21 +388,17 @@ impl cosmic::Application for AppModel {
                     "enroll-failed" => fl!("enroll-failed"),
                     "enroll-disconnected" => fl!("enroll-disconnected"),
                     "enroll-data-full" => fl!("enroll-data-full"),
+                    "enroll-too-fast" => fl!("enroll-too-fast"),
+                    "enroll-duplicate" => fl!("enroll-duplicate"),
+                    "enroll-cancelled" => fl!("enroll-cancelled"),
                     _ => status.clone(),
                 };
                 self.status = status_msg;
 
                 if done {
-                    self.status = fl!("enroll-completed");
                     self.busy = false;
                     self.enrolling_finger = None;
                 }
-            }
-
-            Message::EnrollComplete => {
-                self.status = fl!("enroll-completed");
-                self.busy = false;
-                self.enrolling_finger = None;
             }
 
             Message::EnrollStop => {
@@ -417,7 +413,10 @@ impl cosmic::Application for AppModel {
                         },
                         |res| match res {
                             Ok(_) => cosmic::Action::App(Message::EnrollStopSuccess),
-                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                            Err(e) => {
+                                let _ = cosmic::Action::App(Message::OperationError(e.to_string()));
+                                cosmic::Action::App(Message::EnrollStopSuccess)
+                            },
                         },
                     );
                 }
@@ -426,7 +425,7 @@ impl cosmic::Application for AppModel {
             Message::EnrollStopSuccess => {
                 self.busy = false;
                 self.enrolling_finger = None;
-                self.status = fl!("enroll-completed");
+                self.status = fl!("enroll-cancelled");
 
                 if let (Some(path), Some(conn)) =
                     (self.device_path.clone(), self.connection.clone())
@@ -438,7 +437,10 @@ impl cosmic::Application for AppModel {
                             Ok::<(), zbus::Error>(())
                         },
                         |res| match res {
-                            Ok(_) => cosmic::Action::App(Message::EnrollComplete),
+                            Ok(_) => cosmic::Action::App(Message::EnrollStatus(
+                                "enroll-cancelled".to_string(),
+                                true,
+                            )),
                             Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
                         },
                     );
@@ -450,19 +452,43 @@ impl cosmic::Application for AppModel {
                 self.busy = false;
             }
 
+            Message::DeleteFailed(err) => {
+                self.busy = false;
+
+                if let (Some(path), Some(conn)) =
+                    (self.device_path.clone(), self.connection.clone())
+                {
+                    return Task::perform(
+                        async move {
+                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
+                            device.release().await?;
+                            Ok::<(), zbus::Error>(())
+                        },
+                        move |res| match res {
+                            Ok(_) => cosmic::Action::App(Message::EnrollStatus(
+                                Self::map_error(&err),
+                                true,
+                            )),
+                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                        },
+                    );
+
+                }
+            }
+
             Message::Delete => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
                     if let (Some(path), Some(conn)) =
                         (self.device_path.clone(), self.connection.clone())
                     {
                         self.busy = true;
-                        self.status = "Deleting fingerprints...".to_string();
                         let finger_name = page.as_finger_id().to_string();
+                        self.status = format!("Deleting fingerprint {}", finger_name);
                         return Task::perform(
                             async move {
                                 match delete_fingerprint_dbus(&conn, path, finger_name).await {
                                     Ok(_) => Message::DeleteComplete,
-                                    Err(e) => Message::OperationError(e.to_string()),
+                                    Err(e) => Message::DeleteFailed(e.to_string()),
                                 }
                             },
                             |m| cosmic::Action::App(m),
@@ -569,6 +595,30 @@ impl AppModel {
             Task::none()
         }
     }
+
+    fn map_error(err: &str) -> String {
+        if err.contains("net.reactivated.Fprint.Error.PermissionDenied") {
+            fl!("error-permission-denied")
+        } else if err.contains("net.reactivated.Fprint.Error.AlreadyInUse") {
+            fl!("error-already-in-use")
+        } else if err.contains("net.reactivated.Fprint.Error.Internal") {
+            fl!("error-internal")
+        } else if err.contains("net.reactivated.Fprint.Error.NoEnrolledPrints") {
+            fl!("error-no-enrolled-prints")
+        } else if err.contains("net.reactivated.Fprint.Error.ClaimDevice") {
+            fl!("error-claim-device")
+        } else if err.contains("net.reactivated.Fprint.Error.PrintsNotDeleted") {
+            fl!("error-prints-not-deleted")
+        } else if err.contains("net.reactivated.Fprint.Error.Timeout") {
+            fl!("error-timeout")
+        } else if err.contains("net.reactivated.Fprint.Error.DeviceNotFound")
+            || err.contains("Failed to find device")
+        {
+            fl!("error-device-not-found")
+        } else {
+            err.to_string()
+        }
+    }
 }
 
 async fn find_device(
@@ -654,8 +704,6 @@ where
 
     // Release device
     let _ = device.release().await;
-
-    let _ = output.send(Message::EnrollComplete).await;
 
     Ok(())
 }
@@ -755,6 +803,30 @@ mod tests {
         assert_eq!(Page::LeftMiddle.display_name(), "Left Middle");
         assert_eq!(Page::LeftRing.display_name(), "Left Ring");
         assert_eq!(Page::LeftPinky.display_name(), "Left Pinky");
+    }
+
+    #[test]
+    fn test_map_error() {
+        assert_eq!(
+            AppModel::map_error("net.reactivated.Fprint.Error.PermissionDenied"),
+            "Permission denied."
+        );
+        assert_eq!(
+            AppModel::map_error("Error: net.reactivated.Fprint.Error.PermissionDenied: foo"),
+            "Permission denied."
+        );
+        assert_eq!(
+            AppModel::map_error("Some random error"),
+            "Some random error"
+        );
+        assert_eq!(
+            AppModel::map_error("net.reactivated.Fprint.Error.AlreadyInUse"),
+            "Device is already in use by another application."
+        );
+        assert_eq!(
+            AppModel::map_error("Failed to find device: something"),
+            "Fingerprint device not found."
+        );
     }
 }
 
