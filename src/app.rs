@@ -62,6 +62,7 @@ pub enum Message {
     EnrollStop,
     EnrollStopSuccess,
     DeleteComplete,
+    DeleteFailed(String),
 }
 
 /// Create a COSMIC application from the app model
@@ -285,9 +286,9 @@ impl cosmic::Application for AppModel {
             self.core()
                 .watch_config::<Config>(Self::APP_ID)
                 .map(|update| {
-                    // for why in update.errors {
-                    //     tracing::error!(?why, "app config error");
-                    // }
+                    for why in update.errors {
+                        tracing::error!(?why, "app config error");
+                    }
 
                     Message::UpdateConfig(update.config)
                 }),
@@ -412,7 +413,10 @@ impl cosmic::Application for AppModel {
                         },
                         |res| match res {
                             Ok(_) => cosmic::Action::App(Message::EnrollStopSuccess),
-                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                            Err(e) => {
+                                let _ = cosmic::Action::App(Message::OperationError(e.to_string()));
+                                cosmic::Action::App(Message::EnrollStopSuccess)
+                            },
                         },
                     );
                 }
@@ -442,9 +446,34 @@ impl cosmic::Application for AppModel {
                     );
                 }
             }
+
             Message::DeleteComplete => {
                 self.status = "Fingerprint was deleted.".to_string();
                 self.busy = false;
+            }
+
+            Message::DeleteFailed(err) => {
+                self.busy = false;
+
+                if let (Some(path), Some(conn)) =
+                    (self.device_path.clone(), self.connection.clone())
+                {
+                    return Task::perform(
+                        async move {
+                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
+                            device.release().await?;
+                            Ok::<(), zbus::Error>(())
+                        },
+                        move |res| match res {
+                            Ok(_) => cosmic::Action::App(Message::EnrollStatus(
+                                Self::map_error(&err),
+                                true,
+                            )),
+                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                        },
+                    );
+
+                }
             }
 
             Message::Delete => {
@@ -453,13 +482,13 @@ impl cosmic::Application for AppModel {
                         (self.device_path.clone(), self.connection.clone())
                     {
                         self.busy = true;
-                        self.status = "Deleting fingerprints...".to_string();
                         let finger_name = page.as_finger_id().to_string();
+                        self.status = format!("Deleting fingerprint {}", finger_name);
                         return Task::perform(
                             async move {
                                 match delete_fingerprint_dbus(&conn, path, finger_name).await {
                                     Ok(_) => Message::DeleteComplete,
-                                    Err(e) => Message::OperationError(e.to_string()),
+                                    Err(e) => Message::DeleteFailed(e.to_string()),
                                 }
                             },
                             |m| cosmic::Action::App(m),
