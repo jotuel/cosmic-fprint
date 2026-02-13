@@ -349,7 +349,7 @@ impl cosmic::Application for AppModel {
             }
 
             Message::OperationError(err) => {
-                self.status = format!("Error: {}", err);
+                self.status = Self::map_error(&err);
                 self.busy = false;
                 self.enrolling_finger = None;
             }
@@ -509,6 +509,30 @@ impl AppModel {
             self.set_window_title(window_title, id)
         } else {
             Task::none()
+        }
+    }
+
+    fn map_error(err: &str) -> String {
+        if err.contains("net.reactivated.Fprint.Error.PermissionDenied") {
+            fl!("error-permission-denied")
+        } else if err.contains("net.reactivated.Fprint.Error.AlreadyInUse") {
+            fl!("error-already-in-use")
+        } else if err.contains("net.reactivated.Fprint.Error.Internal") {
+            fl!("error-internal")
+        } else if err.contains("net.reactivated.Fprint.Error.NoEnrolledPrints") {
+            fl!("error-no-enrolled-prints")
+        } else if err.contains("net.reactivated.Fprint.Error.ClaimDevice") {
+            fl!("error-claim-device")
+        } else if err.contains("net.reactivated.Fprint.Error.PrintsNotDeleted") {
+            fl!("error-prints-not-deleted")
+        } else if err.contains("net.reactivated.Fprint.Error.Timeout") {
+            fl!("error-timeout")
+        } else if err.contains("net.reactivated.Fprint.Error.DeviceNotFound")
+            || err.contains("Failed to find device")
+        {
+            fl!("error-device-not-found")
+        } else {
+            err.to_string()
         }
     }
 }
@@ -695,6 +719,30 @@ mod tests {
         assert_eq!(Page::LeftMiddle.display_name(), "Left Middle");
         assert_eq!(Page::LeftRing.display_name(), "Left Ring");
         assert_eq!(Page::LeftPinky.display_name(), "Left Pinky");
+    }
+
+    #[test]
+    fn test_map_error() {
+        assert_eq!(
+            AppModel::map_error("net.reactivated.Fprint.Error.PermissionDenied"),
+            "Permission denied."
+        );
+        assert_eq!(
+            AppModel::map_error("Error: net.reactivated.Fprint.Error.PermissionDenied: foo"),
+            "Permission denied."
+        );
+        assert_eq!(
+            AppModel::map_error("Some random error"),
+            "Some random error"
+        );
+        assert_eq!(
+            AppModel::map_error("net.reactivated.Fprint.Error.AlreadyInUse"),
+            "Device is already in use by another application."
+        );
+        assert_eq!(
+            AppModel::map_error("Failed to find device: something"),
+            "Fingerprint device not found."
+        );
     }
 }
 

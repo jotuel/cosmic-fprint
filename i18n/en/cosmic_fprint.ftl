@@ -21,3 +21,12 @@ enroll-disconnected = Device disconnected.
 enroll-data-full = Fingerprint storage is full. Please delete some fingerprints.
 enroll-too-fast = Swipe was too fast. Please swipe slower.
 enroll-duplicate = This finger is already enrolled.
+
+error-permission-denied = Permission denied.
+error-already-in-use = Device is already in use by another application.
+error-internal = An internal error occurred.
+error-no-enrolled-prints = No fingerprints enrolled for this finger.
+error-claim-device = Could not claim the device.
+error-device-not-found = Fingerprint device not found.
+error-timeout = Operation timed out.
+error-prints-not-deleted = Could not delete fingerprints.
