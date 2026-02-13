@@ -3,11 +3,21 @@ about = About
 view = View
 fprint = Register Fingerprint
 welcome = Register and/or delete fingerprints
-page-id = {$name} finger
 git-description = Git commit {$hash} on {$date}
 register = Register
 delete = Delete
 cancel = Cancel
+
+page-right-thumb = Right Thumb
+page-right-index-finger = Right Index Finger
+page-right-middle-finger = Right Middle Finger
+page-right-ring-finger = Right Ring Finger
+page-right-little-finger = Right Little Finger
+page-left-thumb = Left Thumb
+page-left-index-finger = Left Index Finger
+page-left-middle-finger = Left Middle Finger
+page-left-ring-finger = Left Ring Finger
+page-left-little-finger = Left Little Finger
 
 enroll-starting = Place your finger on the reader to start.
 enroll-stage-passed = Scan successful. Keep going.
