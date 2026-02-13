@@ -97,7 +97,7 @@ impl cosmic::Application for AppModel {
 
         for page in Page::all() {
             nav.insert()
-                .text(fl!("page-id", name = page.display_name()))
+                .text(page.localized_name())
                 .data::<Page>(*page)
                 .icon(icon::from_name("applications-utilities-symbolic"));
         }
@@ -477,33 +477,32 @@ impl cosmic::Application for AppModel {
             }
 
             Message::Delete => {
-                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
-                    if let (Some(path), Some(conn)) =
+                if let Some(page) = self.nav.data::<Page>(self.nav.active())
+                    && let (Some(path), Some(conn)) =
                         (self.device_path.clone(), self.connection.clone())
-                    {
-                        self.busy = true;
-                        let finger_name = page.as_finger_id().to_string();
-                        self.status = format!("Deleting fingerprint {}", finger_name);
-                        return Task::perform(
-                            async move {
-                                match delete_fingerprint_dbus(&conn, path, finger_name).await {
-                                    Ok(_) => Message::DeleteComplete,
-                                    Err(e) => Message::DeleteFailed(e.to_string()),
-                                }
-                            },
-                            |m| cosmic::Action::App(m),
-                        );
-                    }
+                {
+                    self.busy = true;
+                    let finger_name = page.as_finger_id().to_string();
+                    self.status = format!("Deleting fingerprint {}", finger_name);
+                    return Task::perform(
+                        async move {
+                            match delete_fingerprint_dbus(&conn, path, finger_name).await {
+                                Ok(_) => Message::DeleteComplete,
+                                Err(e) => Message::DeleteFailed(e.to_string()),
+                            }
+                        },
+                        cosmic::Action::App,
+                    );
                 }
             }
 
             Message::Register => {
-                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
-                    if let Some(_) = &self.device_path {
-                        self.busy = true;
-                        self.status = "Starting enrollment...".to_string();
-                        self.enrolling_finger = Some(page.as_finger_id().to_string());
-                    }
+                if let Some(page) = self.nav.data::<Page>(self.nav.active())
+                    && self.device_path.is_some()
+                {
+                    self.busy = true;
+                    self.status = "Starting enrollment...".to_string();
+                    self.enrolling_finger = Some(page.as_finger_id().to_string());
                 }
             }
 
@@ -624,7 +623,7 @@ impl AppModel {
 async fn find_device(
     connection: &zbus::Connection,
 ) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
-    let manager = ManagerProxy::new(&connection).await?;
+    let manager = ManagerProxy::new(connection).await?;
     let device = manager.get_default_device().await?;
     Ok(device)
 }
@@ -740,18 +739,18 @@ impl Page {
         ]
     }
 
-    fn display_name(&self) -> &'static str {
+    fn localized_name(&self) -> String {
         match self {
-            Self::RightThumb => "Right Thumb",
-            Self::RightIndex => "Right Index",
-            Self::RightMiddle => "Right Middle",
-            Self::RightRing => "Right Ring",
-            Self::RightPinky => "Right Pinky",
-            Self::LeftThumb => "Left Thumb",
-            Self::LeftIndex => "Left Index",
-            Self::LeftMiddle => "Left Middle",
-            Self::LeftRing => "Left Ring",
-            Self::LeftPinky => "Left Pinky",
+            Self::RightThumb => fl!("page-right-thumb"),
+            Self::RightIndex => fl!("page-right-index-finger"),
+            Self::RightMiddle => fl!("page-right-middle-finger"),
+            Self::RightRing => fl!("page-right-ring-finger"),
+            Self::RightPinky => fl!("page-right-little-finger"),
+            Self::LeftThumb => fl!("page-left-thumb"),
+            Self::LeftIndex => fl!("page-left-index-finger"),
+            Self::LeftMiddle => fl!("page-left-middle-finger"),
+            Self::LeftRing => fl!("page-left-ring-finger"),
+            Self::LeftPinky => fl!("page-left-little-finger"),
         }
     }
 
@@ -792,17 +791,17 @@ mod tests {
     }
 
     #[test]
-    fn test_page_display_name() {
-        assert_eq!(Page::RightThumb.display_name(), "Right Thumb");
-        assert_eq!(Page::RightIndex.display_name(), "Right Index");
-        assert_eq!(Page::RightMiddle.display_name(), "Right Middle");
-        assert_eq!(Page::RightRing.display_name(), "Right Ring");
-        assert_eq!(Page::RightPinky.display_name(), "Right Pinky");
-        assert_eq!(Page::LeftThumb.display_name(), "Left Thumb");
-        assert_eq!(Page::LeftIndex.display_name(), "Left Index");
-        assert_eq!(Page::LeftMiddle.display_name(), "Left Middle");
-        assert_eq!(Page::LeftRing.display_name(), "Left Ring");
-        assert_eq!(Page::LeftPinky.display_name(), "Left Pinky");
+    fn test_page_localized_name() {
+        assert_eq!(Page::RightThumb.localized_name(), "Right Thumb");
+        assert_eq!(Page::RightIndex.localized_name(), "Right Index Finger");
+        assert_eq!(Page::RightMiddle.localized_name(), "Right Middle Finger");
+        assert_eq!(Page::RightRing.localized_name(), "Right Ring Finger");
+        assert_eq!(Page::RightPinky.localized_name(), "Right Little Finger");
+        assert_eq!(Page::LeftThumb.localized_name(), "Left Thumb");
+        assert_eq!(Page::LeftIndex.localized_name(), "Left Index Finger");
+        assert_eq!(Page::LeftMiddle.localized_name(), "Left Middle Finger");
+        assert_eq!(Page::LeftRing.localized_name(), "Left Ring Finger");
+        assert_eq!(Page::LeftPinky.localized_name(), "Left Little Finger");
     }
 
     #[test]
