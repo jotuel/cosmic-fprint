@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>me.joonastuomi.CosmicFprint</id>
+  <id>fi.joonastuomi.CosmicFprint</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MPL-2.0</project_license>
   <name>Cosmic Fprint</name>
@@ -9,9 +9,9 @@
     https://github.com/jotuel/cosmic-fprint/raw/main/resources/icons/hicolor/scalable/apps/icon.svg
   </icon>
   <url type="vcs-browser">https://github.com/jotuel/cosmic-fprint</url>
-  <launchable type="desktop-id">me.joonastuomi.CosmicFprint.desktop</launchable>
+  <launchable type="desktop-id">fi.joonastuomi.CosmicFprint.desktop</launchable>
   <provides>
-    <id>me.joonastuomi.CosmicFprint</id>
+    <id>fi.joonastuomi.CosmicFprint</id>
     <binaries>
       <binary>cosmic-fprint</binary>
     </binaries>

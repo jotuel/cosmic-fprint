@@ -1,0 +1,46 @@
+app-id: fi.joonastuomi.CosmicFprint
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: cosmic-fprint
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --socket=system-bus
+  # Allow talking to fprintd
+  - --talk-name=net.reactivated.Fprint
+  # Allow talking to PolicyKit for authentication
+  - --talk-name=org.freedesktop.PolicyKit1
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  build-args:
+    - --share=network
+
+modules:
+  - name: cosmic-fprint
+    buildsystem: simple
+    build-commands:
+      # Build the application
+      - cargo build --release
+
+      # Install the binary
+      - install -Dm0755 target/release/cosmic-fprint /app/bin/cosmic-fprint
+
+      # Install the desktop file
+      - install -Dm0644 resources/app.desktop /app/share/applications/fi.joonastuomi.CosmicFprint.desktop
+
+      # Install the AppStream metadata
+      - install -Dm0644 resources/app.metainfo.xml /app/share/appdata/fi.joonastuomi.CosmicFprint.metainfo.xml
+
+      # Install the icon
+      - install -Dm0644 resources/icons/hicolor/scalable/apps/icon.svg /app/share/icons/hicolor/scalable/apps/fi.joonastuomi.CosmicFprint.svg
+
+    sources:
+      - type: dir
+        path: ..
