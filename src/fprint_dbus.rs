@@ -25,4 +25,10 @@ pub trait Device {
 
     #[zbus(signal)]
     fn enroll_status(&self, result: String, done: bool) -> zbus::Result<()>;
+
+    #[zbus(property, name = "num-enroll-stages")]
+    fn num_enroll_stages(&self) -> zbus::Result<i32>;
+
+    #[zbus(property, name = "scan-type")]
+    fn scan_type(&self) -> zbus::Result<String>;
 }

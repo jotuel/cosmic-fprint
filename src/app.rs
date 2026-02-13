@@ -40,6 +40,9 @@ pub struct AppModel {
     busy: bool,
     // Finger currently being enrolled (None if not enrolling)
     enrolling_finger: Option<String>,
+    // Enrollment progress
+    enroll_progress: i32,
+    enroll_total_stages: i32,
 }
 
 /// Messages emitted by the application and its widgets.
@@ -54,6 +57,7 @@ pub enum Message {
     ConnectionReady(zbus::Connection),
     DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
     OperationError(String),
+    EnrollStart(i32),
     EnrollStatus(String, bool),
     EnrollComplete,
     EnrollStop,
@@ -121,6 +125,8 @@ impl cosmic::Application for AppModel {
             connection: None,
             busy: true,
             enrolling_finger: None,
+            enroll_progress: 0,
+            enroll_total_stages: 0,
         };
 
         // Create a startup command that sets the window title.
@@ -196,7 +202,7 @@ impl cosmic::Application for AppModel {
             delete_btn
         };
 
-        widget::column()
+        let mut column = widget::column()
             .push(
                 text::title1(fl!("fprint"))
                     .apply(widget::container)
@@ -218,7 +224,19 @@ impl cosmic::Application for AppModel {
                     .apply(widget::container)
                     .width(Length::Fill)
                     .align_x(Horizontal::Center),
-            )
+            );
+
+        if self.enrolling_finger.is_some() && self.enroll_total_stages > 0 {
+            column = column.push(
+                widget::progress_bar(
+                    0.0..=(self.enroll_total_stages as f32),
+                    self.enroll_progress as f32,
+                )
+                .height(10),
+            );
+        }
+
+        column
             .push(
                 widget::row()
                     .push(register_btn)
@@ -338,17 +356,40 @@ impl cosmic::Application for AppModel {
                 self.enrolling_finger = None;
             }
 
+            Message::EnrollStart(total) => {
+                self.enroll_total_stages = total;
+                self.enroll_progress = 0;
+                self.status = fl!("enroll-starting");
+            }
+
             Message::EnrollStatus(status, done) => {
-                self.status = format!("Enrolling: {}", status);
+                let status_msg = match status.as_str() {
+                    "enroll-stage-passed" => {
+                        self.enroll_progress += 1;
+                        fl!("enroll-stage-passed")
+                    }
+                    "enroll-retry-scan" => fl!("enroll-retry-scan"),
+                    "enroll-swipe-too-short" => fl!("enroll-swipe-too-short"),
+                    "enroll-finger-not-centered" => fl!("enroll-finger-not-centered"),
+                    "enroll-remove-and-retry" => fl!("enroll-remove-and-retry"),
+                    "enroll-unknown-error" => fl!("enroll-unknown-error"),
+                    "enroll-completed" => fl!("enroll-completed"),
+                    "enroll-failed" => fl!("enroll-failed"),
+                    "enroll-disconnected" => fl!("enroll-disconnected"),
+                    "enroll-data-full" => fl!("enroll-data-full"),
+                    _ => status.clone(),
+                };
+                self.status = status_msg;
+
                 if done {
-                    self.status = "Enrollment completed successfully.".to_string();
+                    self.status = fl!("enroll-completed");
                     self.busy = false;
                     self.enrolling_finger = None;
                 }
             }
 
             Message::EnrollComplete => {
-                self.status = "Enrollment completed.".to_string();
+                self.status = fl!("enroll-completed");
                 self.busy = false;
                 self.enrolling_finger = None;
             }
@@ -366,16 +407,20 @@ impl cosmic::Application for AppModel {
             Message::Delete => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
                     if let (Some(path), Some(conn)) =
-                        (self.device_path.clone(), self.connection.clone()) {
-                       self.busy = true;
-                       self.status = "Deleting fingerprints...".to_string();
-                       let finger_name = page.as_finger_id().to_string();
-                       return Task::perform(async move {
-                           match delete_fingerprint_dbus(&conn, path, finger_name).await {
-                               Ok(_) => Message::DeleteComplete,
-                               Err(e) => Message::OperationError(e.to_string()),
-                           }
-                       }, |m| cosmic::Action::App(m));
+                        (self.device_path.clone(), self.connection.clone())
+                    {
+                        self.busy = true;
+                        self.status = "Deleting fingerprints...".to_string();
+                        let finger_name = page.as_finger_id().to_string();
+                        return Task::perform(
+                            async move {
+                                match delete_fingerprint_dbus(&conn, path, finger_name).await {
+                                    Ok(_) => Message::DeleteComplete,
+                                    Err(e) => Message::OperationError(e.to_string()),
+                                }
+                            },
+                            |m| cosmic::Action::App(m),
+                        );
                     }
                 }
             }
@@ -480,8 +525,9 @@ impl AppModel {
     }
 }
 
-
-async fn find_device(connection: &zbus::Connection) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
+async fn find_device(
+    connection: &zbus::Connection,
+) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
     let manager = ManagerProxy::new(&connection).await?;
     let device = manager.get_default_device().await?;
     Ok(device)
@@ -520,6 +566,9 @@ where
         Ok(_) => {}
         Err(e) => return Err(e),
     };
+
+    let total_stages = device.num_enroll_stages().await.unwrap_or(-1);
+    let _ = output.send(Message::EnrollStart(total_stages)).await;
 
     // Start enrollment
     if let Err(e) = device.enroll_start(&finger_name).await {
@@ -684,4 +733,3 @@ impl menu::action::MenuAction for MenuAction {
         }
     }
 }
-
