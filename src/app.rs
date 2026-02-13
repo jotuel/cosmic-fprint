@@ -46,7 +46,6 @@ pub struct AppModel {
 #[derive(Debug, Clone)]
 pub enum Message {
     OpenRepositoryUrl,
-    SubscriptionChannel,
     ToggleContextPage(ContextPage),
     UpdateConfig(Config),
     LaunchUrl(String),
@@ -250,9 +249,7 @@ impl cosmic::Application for AppModel {
             // Create a subscription which emits updates through a channel.
             Subscription::run_with_id(
                 std::any::TypeId::of::<MySubscription>(),
-                cosmic::iced::stream::channel(4, move |mut channel| async move {
-                    _ = channel.send(Message::SubscriptionChannel).await;
-
+                cosmic::iced::stream::channel(4, move |_channel| async move {
                     futures_util::future::pending().await
                 }),
             ),
@@ -406,10 +403,6 @@ impl cosmic::Application for AppModel {
                     self.context_page = context_page;
                     self.core.window.show_context = true;
                 }
-            }
-
-            Message::Feedback(feedback) => {
-                self.status = feedback;
             }
 
             Message::UpdateConfig(config) => {
