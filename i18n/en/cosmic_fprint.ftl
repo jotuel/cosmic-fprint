@@ -7,6 +7,7 @@ page-id = {$name} finger
 git-description = Git commit {$hash} on {$date}
 register = Register
 delete = Delete
+cancel = Cancel
 
 enroll-starting = Place your finger on the reader to start.
 enroll-stage-passed = Scan successful. Keep going.

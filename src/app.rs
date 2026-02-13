@@ -61,6 +61,7 @@ pub enum Message {
     EnrollStatus(String, bool),
     EnrollComplete,
     EnrollStop,
+    EnrollStopSuccess,
     DeleteComplete,
 }
 
@@ -202,6 +203,11 @@ impl cosmic::Application for AppModel {
             delete_btn
         };
 
+        let mut cancel_btn = widget::button::text(fl!("cancel"));
+        if self.enrolling_finger.is_some() {
+            cancel_btn = cancel_btn.on_press(Message::EnrollStop);
+        }
+
         let mut column = widget::column()
             .push(
                 text::title1(fl!("fprint"))
@@ -236,12 +242,17 @@ impl cosmic::Application for AppModel {
             );
         }
 
+        let mut row = widget::row()
+            .push(register_btn)
+            .push(delete_btn);
+
+        if self.enrolling_finger.is_some() {
+            row = row.push(cancel_btn);
+        }
+
         column
             .push(
-                widget::row()
-                    .push(register_btn)
-                    .push(delete_btn)
-                    .apply(widget::container)
+                row.apply(widget::container)
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .align_x(Horizontal::Center)
@@ -395,8 +406,43 @@ impl cosmic::Application for AppModel {
             }
 
             Message::EnrollStop => {
+                if let (Some(path), Some(conn)) =
+                    (self.device_path.clone(), self.connection.clone())
+                {
+                    return Task::perform(
+                        async move {
+                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
+                            device.enroll_stop().await?;
+                            Ok::<(), zbus::Error>(())
+                        },
+                        |res| match res {
+                            Ok(_) => cosmic::Action::App(Message::EnrollStopSuccess),
+                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                        },
+                    );
+                }
+            }
+
+            Message::EnrollStopSuccess => {
                 self.busy = false;
                 self.enrolling_finger = None;
+                self.status = fl!("enroll-completed");
+
+                if let (Some(path), Some(conn)) =
+                    (self.device_path.clone(), self.connection.clone())
+                {
+                    return Task::perform(
+                        async move {
+                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
+                            device.release().await?;
+                            Ok::<(), zbus::Error>(())
+                        },
+                        |res| match res {
+                            Ok(_) => cosmic::Action::App(Message::EnrollComplete),
+                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                        },
+                    );
+                }
             }
 
             Message::DeleteComplete => {
