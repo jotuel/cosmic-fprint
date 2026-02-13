@@ -59,8 +59,6 @@ pub enum Message {
     OperationError(String),
     EnrollStart(i32),
     EnrollStatus(String, bool),
-    EnrollComplete,
-    EnrollStop,
     DeleteComplete,
 }
 
@@ -377,26 +375,16 @@ impl cosmic::Application for AppModel {
                     "enroll-failed" => fl!("enroll-failed"),
                     "enroll-disconnected" => fl!("enroll-disconnected"),
                     "enroll-data-full" => fl!("enroll-data-full"),
+                    "enroll-too-fast" => fl!("enroll-too-fast"),
+                    "enroll-duplicate" => fl!("enroll-duplicate"),
                     _ => status.clone(),
                 };
                 self.status = status_msg;
 
                 if done {
-                    self.status = fl!("enroll-completed");
                     self.busy = false;
                     self.enrolling_finger = None;
                 }
-            }
-
-            Message::EnrollComplete => {
-                self.status = fl!("enroll-completed");
-                self.busy = false;
-                self.enrolling_finger = None;
-            }
-
-            Message::EnrollStop => {
-                self.busy = false;
-                self.enrolling_finger = None;
             }
 
             Message::DeleteComplete => {
@@ -608,8 +596,6 @@ where
 
     // Release device
     let _ = device.release().await;
-
-    let _ = output.send(Message::EnrollComplete).await;
 
     Ok(())
 }
