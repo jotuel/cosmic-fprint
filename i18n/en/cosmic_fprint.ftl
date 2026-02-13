@@ -7,3 +7,15 @@ page-id = {$name} finger
 git-description = Git commit {$hash} on {$date}
 register = Register
 delete = Delete
+
+enroll-starting = Place your finger on the reader to start.
+enroll-stage-passed = Scan successful. Keep going.
+enroll-retry-scan = Scan failed. Please retry.
+enroll-swipe-too-short = Swipe was too short. Try again.
+enroll-finger-not-centered = Finger was not centered. Try again.
+enroll-remove-and-retry = Remove your finger and try again.
+enroll-unknown-error = Unknown error occurred.
+enroll-completed = Enrollment completed successfully.
+enroll-failed = Enrollment failed.
+enroll-disconnected = Device disconnected.
+enroll-data-full = Storage is full.
