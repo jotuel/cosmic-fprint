@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>me.joonastuomi.CosmicFprint</id>
+  <id>fi.joonastuomi.CosmicFprint</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MPL-2.0</project_license>
   <name>Cosmic Fprint</name>
   <summary>COSMIC™ GUI for fprintd fingerprint enrolling</summary>
+  <description>
+    <p>
+      Cosmic Fprint is a COSMIC™ application for enrolling fingerprints using the fprintd daemon. It allows you to register and delete fingerprints for authentication on your Linux system.
+    </p>
+  </description>
   <icon type="remote" width="64" height="64" scale="1">
     https://github.com/jotuel/cosmic-fprint/raw/main/resources/icons/hicolor/scalable/apps/icon.svg
   </icon>
   <url type="vcs-browser">https://github.com/jotuel/cosmic-fprint</url>
-  <launchable type="desktop-id">me.joonastuomi.CosmicFprint.desktop</launchable>
+  <launchable type="desktop-id">fi.joonastuomi.CosmicFprint.desktop</launchable>
   <provides>
-    <id>me.joonastuomi.CosmicFprint</id>
+    <id>fi.joonastuomi.CosmicFprint</id>
     <binaries>
       <binary>cosmic-fprint</binary>
     </binaries>

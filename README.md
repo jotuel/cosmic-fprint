@@ -19,7 +19,7 @@ Small video registering fingerprint:
 - Improve feedback given to user. Currently prints what daemon returns.
 - Add a user dropdown to make it possible for admin to register for other users.
 - Get project into cosmic-utils.
-- Package & distribute, most likely as a flatpak, but maybe as a deb package also.
+- [x] Package & distribute, most likely as a flatpak, but maybe as a deb package also.
 - Sherlock the application by adding all functionality directly into cosmic-settings.
 
 
@@ -50,6 +50,16 @@ just rootdir=debian/cosmic-fprint prefix=/usr install
 ```
 
 It is recommended to build a source tarball with the vendored dependencies, which can typically be done by running `just vendor` on the host system before it enters the build environment.
+
+### Flatpak
+
+A Flatpak manifest is included in the `flatpak` directory. To build and install the Flatpak:
+
+```sh
+flatpak-builder --user --install --force-clean build flatpak/fi.joonastuomi.CosmicFprint.yml
+```
+
+Note: The included manifest uses network access during build to fetch dependencies. For strict offline builds, you should generate a `cargo-sources.json` file using `flatpak-builder-tools`.
 
 ## Developers
 
