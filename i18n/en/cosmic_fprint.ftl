@@ -7,6 +7,7 @@ page-id = {$name} finger
 git-description = Git commit {$hash} on {$date}
 register = Register
 delete = Delete
+cancel = Cancel
 
 enroll-starting = Place your finger on the reader to start.
 enroll-stage-passed = Scan successful. Keep going.
@@ -21,6 +22,7 @@ enroll-disconnected = Device disconnected.
 enroll-data-full = Fingerprint storage is full. Please delete some fingerprints.
 enroll-too-fast = Swipe was too fast. Please swipe slower.
 enroll-duplicate = This finger is already enrolled.
+enroll-cancelled = Enrollment cancelled.
 
 error-permission-denied = Permission denied.
 error-already-in-use = Device is already in use by another application.
