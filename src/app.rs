@@ -93,55 +93,12 @@ impl cosmic::Application for AppModel {
         // Create a nav bar for every fingerprint
         let mut nav = nav_bar::Model::default();
 
-        nav.insert()
-            .text(fl!("page-id", name = "Right Thumb"))
-            .data::<Page>(Page::RightThumb)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Right Index"))
-            .data::<Page>(Page::RightIndex)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Right Middle"))
-            .data::<Page>(Page::RightMiddle)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Right Ring"))
-            .data::<Page>(Page::RightRing)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Right Pinky"))
-            .data::<Page>(Page::RightPinky)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Left Thumb"))
-            .data::<Page>(Page::LeftThumb)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Left Index"))
-            .data::<Page>(Page::LeftIndex)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Left Middle"))
-            .data::<Page>(Page::LeftMiddle)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Left Ring"))
-            .data::<Page>(Page::LeftRing)
-            .icon(icon::from_name("applications-utilities-symbolic"));
-
-        nav.insert()
-            .text(fl!("page-id", name = "Left Pinky"))
-            .data::<Page>(Page::LeftPinky)
-            .icon(icon::from_name("applications-utilities-symbolic"));
+        for page in Page::all() {
+            nav.insert()
+                .text(fl!("page-id", name = page.display_name()))
+                .data::<Page>(*page)
+                .icon(icon::from_name("applications-utilities-symbolic"));
+        }
 
         // Construct the app model with the runtime's core.
         let mut app = AppModel {
@@ -638,6 +595,36 @@ pub enum Page {
 }
 
 impl Page {
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::RightThumb,
+            Self::RightIndex,
+            Self::RightMiddle,
+            Self::RightRing,
+            Self::RightPinky,
+            Self::LeftThumb,
+            Self::LeftIndex,
+            Self::LeftMiddle,
+            Self::LeftRing,
+            Self::LeftPinky,
+        ]
+    }
+
+    fn display_name(&self) -> &'static str {
+        match self {
+            Self::RightThumb => "Right Thumb",
+            Self::RightIndex => "Right Index",
+            Self::RightMiddle => "Right Middle",
+            Self::RightRing => "Right Ring",
+            Self::RightPinky => "Right Pinky",
+            Self::LeftThumb => "Left Thumb",
+            Self::LeftIndex => "Left Index",
+            Self::LeftMiddle => "Left Middle",
+            Self::LeftRing => "Left Ring",
+            Self::LeftPinky => "Left Pinky",
+        }
+    }
+
     fn as_finger_id(&self) -> &'static str {
         match self {
             Page::RightThumb => "right-thumb",
@@ -651,6 +638,41 @@ impl Page {
             Page::LeftRing => "left-ring-finger",
             Page::LeftPinky => "left-little-finger",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_page_all() {
+        let pages = Page::all();
+        assert_eq!(pages.len(), 10);
+        assert_eq!(pages[0], Page::RightThumb);
+        assert_eq!(pages[1], Page::RightIndex);
+        assert_eq!(pages[2], Page::RightMiddle);
+        assert_eq!(pages[3], Page::RightRing);
+        assert_eq!(pages[4], Page::RightPinky);
+        assert_eq!(pages[5], Page::LeftThumb);
+        assert_eq!(pages[6], Page::LeftIndex);
+        assert_eq!(pages[7], Page::LeftMiddle);
+        assert_eq!(pages[8], Page::LeftRing);
+        assert_eq!(pages[9], Page::LeftPinky);
+    }
+
+    #[test]
+    fn test_page_display_name() {
+        assert_eq!(Page::RightThumb.display_name(), "Right Thumb");
+        assert_eq!(Page::RightIndex.display_name(), "Right Index");
+        assert_eq!(Page::RightMiddle.display_name(), "Right Middle");
+        assert_eq!(Page::RightRing.display_name(), "Right Ring");
+        assert_eq!(Page::RightPinky.display_name(), "Right Pinky");
+        assert_eq!(Page::LeftThumb.display_name(), "Left Thumb");
+        assert_eq!(Page::LeftIndex.display_name(), "Left Index");
+        assert_eq!(Page::LeftMiddle.display_name(), "Left Middle");
+        assert_eq!(Page::LeftRing.display_name(), "Left Ring");
+        assert_eq!(Page::LeftPinky.display_name(), "Left Pinky");
     }
 }
 
