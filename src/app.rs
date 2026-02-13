@@ -424,12 +424,25 @@ impl cosmic::Application for AppModel {
             }
 
             Message::EnrollStopSuccess => {
-                // The enrollment process (subscription) should receive a signal (e.g. enroll-failed)
-                // from the device indicating that enrollment has stopped.
-                // This will trigger Message::EnrollComplete or Message::EnrollStatus(..., true),
-                // which will clear the state and release the device.
-                // We do not clear state here to avoid cancelling the subscription prematurely
-                // (which would skip device release).
+                self.busy = false;
+                self.enrolling_finger = None;
+                self.status = fl!("enroll-completed");
+
+                if let (Some(path), Some(conn)) =
+                    (self.device_path.clone(), self.connection.clone())
+                {
+                    return Task::perform(
+                        async move {
+                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
+                            device.release().await?;
+                            Ok::<(), zbus::Error>(())
+                        },
+                        |res| match res {
+                            Ok(_) => cosmic::Action::App(Message::EnrollComplete),
+                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                        },
+                    );
+                }
             }
 
             Message::DeleteComplete => {
