@@ -34,6 +34,8 @@ pub struct AppModel {
     status: String,
     // Currently selected device path
     device_path: Option<zbus::zvariant::OwnedObjectPath>,
+    // Shared DBus connection
+    connection: Option<zbus::Connection>,
     // Whether an operation is in progress
     busy: bool,
     // Finger currently being enrolled (None if not enrolling)
@@ -52,6 +54,7 @@ pub enum Message {
     Register,
     Feedback(String),
     // Async Operation Messages
+    ConnectionReady(zbus::Connection),
     DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
     OperationError(String),
     EnrollStatus(String, bool),
@@ -159,8 +162,9 @@ impl cosmic::Application for AppModel {
                     }
                 })
                 .unwrap_or_default(),
-            status: "Searching for fingerprint reader...".to_string(),
+            status: "Connecting to system bus...".to_string(),
             device_path: None,
+            connection: None,
             busy: true,
             enrolling_finger: None,
         };
@@ -168,22 +172,22 @@ impl cosmic::Application for AppModel {
         // Create a startup command that sets the window title.
         let command = app.update_title();
 
-        // Start async task to find device
-        let find_device_task = Task::perform(
+        // Start async task to connect to DBus
+        let connect_task = Task::perform(
             async move {
-                match find_device().await {
-                    Ok(path) => Message::DeviceFound(Some(path)),
-                    Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
+                match zbus::Connection::system().await {
+                    Ok(conn) => Message::ConnectionReady(conn),
+                    Err(e) => Message::OperationError(format!("Failed to connect to DBus: {}", e)),
                 }
             },
-            |m| cosmic::Action::App(m),
+            cosmic::Action::App,
         );
 
-        (app, command.chain(find_device_task))
+        (app, command.chain(connect_task))
     }
 
     /// Elements to pack at the start of the header bar.
-    fn header_start(&self) -> Vec<Element<Self::Message>> {
+    fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
         // Commented out due to trait bound issues in libcosmic update
         /*
         let menu_bar = menu::bar(vec![menu::Tree::with_children(
@@ -205,7 +209,7 @@ impl cosmic::Application for AppModel {
     }
 
     /// Display a context drawer if the context page is requested.
-    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Self::Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<'_, Self::Message>> {
         if !self.core.window.show_context {
             return None;
         }
@@ -223,7 +227,7 @@ impl cosmic::Application for AppModel {
     ///
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         let buttons_enabled =
             !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
 
@@ -314,16 +318,25 @@ impl cosmic::Application for AppModel {
         ];
 
         // Add enrollment subscription if enrolling
-        if let (Some(finger_name), Some(device_path)) = (&self.enrolling_finger, &self.device_path)
+        if let (Some(finger_name), Some(device_path), Some(connection)) =
+            (&self.enrolling_finger, &self.device_path, &self.connection)
         {
             let finger_name = finger_name.clone();
             let device_path = device_path.clone();
+            let connection = connection.clone();
 
             subscriptions.push(Subscription::run_with_id(
                 std::any::TypeId::of::<EnrollmentSubscription>(),
                 cosmic::iced::stream::channel(100, move |mut output| async move {
                     // Implement enrollment stream here
-                    match enroll_fingerprint_process(device_path, finger_name, &mut output).await {
+                    match enroll_fingerprint_process(
+                        connection,
+                        device_path,
+                        finger_name,
+                        &mut output,
+                    )
+                    .await
+                    {
                         Ok(_) => {}
                         Err(e) => {
                             let _ = output.send(Message::OperationError(e.to_string())).await;
@@ -343,6 +356,23 @@ impl cosmic::Application for AppModel {
     /// on the application's async runtime.
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
+            Message::ConnectionReady(conn) => {
+                self.connection = Some(conn.clone());
+                self.status = "Searching for fingerprint reader...".to_string();
+
+                return Task::perform(
+                    async move {
+                        match find_device(&conn).await {
+                            Ok(path) => Message::DeviceFound(Some(path)),
+                            Err(e) => {
+                                Message::OperationError(format!("Failed to find device: {}", e))
+                            }
+                        }
+                    },
+                    cosmic::Action::App,
+                );
+            }
+
             Message::DeviceFound(path) => {
                 self.device_path = path;
                 if self.device_path.is_some() {
@@ -353,11 +383,13 @@ impl cosmic::Application for AppModel {
                     self.busy = true;
                 }
             }
+
             Message::OperationError(err) => {
                 self.status = format!("Error: {}", err);
                 self.busy = false;
                 self.enrolling_finger = None;
             }
+
             Message::EnrollStatus(status, done) => {
                 self.status = format!("Enrolling: {}", status);
                 if done {
@@ -366,44 +398,50 @@ impl cosmic::Application for AppModel {
                     self.enrolling_finger = None;
                 }
             }
+
             Message::EnrollComplete => {
                 self.status = "Enrollment completed.".to_string();
                 self.busy = false;
                 self.enrolling_finger = None;
             }
+
             Message::EnrollStop => {
                 self.busy = false;
                 self.enrolling_finger = None;
             }
+
             Message::DeleteComplete => {
                 self.status = "Fingerprint was deleted.".to_string();
                 self.busy = false;
             }
+
             Message::Delete => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
-                    if let Some(path) = self.device_path.clone() {
-                         self.busy = true;
-                         self.status = "Deleting fingerprints...".to_string();
-                         let finger_name = page.as_finger_id().to_string();
-                         return Task::perform(async move {
-                             match delete_fingerprint_dbus(path, finger_name).await {
-                                 Ok(_) => Message::DeleteComplete,
-                                 Err(e) => Message::OperationError(e.to_string()),
-                             }
-                         }, |m| cosmic::Action::App(m));
+                    if let (Some(path), Some(conn)) =
+                        (self.device_path.clone(), self.connection.clone()) {
+                       self.busy = true;
+                       self.status = "Deleting fingerprints...".to_string();
+                       let finger_name = page.as_finger_id().to_string();
+                       return Task::perform(async move {
+                           match delete_fingerprint_dbus(&conn, path, finger_name).await {
+                               Ok(_) => Message::DeleteComplete,
+                               Err(e) => Message::OperationError(e.to_string()),
+                           }
+                       }, |m| cosmic::Action::App(m));
                     }
                 }
             }
+
             Message::Register => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
                     if let Some(_) = &self.device_path {
-                         self.busy = true;
-                         self.status = "Starting enrollment...".to_string();
-                         self.enrolling_finger = Some(page.as_finger_id().to_string());
-                         // The subscription will pick this up automatically
+                        self.busy = true;
+                        self.status = "Starting enrollment...".to_string();
+                        self.enrolling_finger = Some(page.as_finger_id().to_string());
                     }
                 }
             }
+
             Message::OpenRepositoryUrl => {
                 let _ = open::that_detached(REPOSITORY);
             }
@@ -452,7 +490,7 @@ impl cosmic::Application for AppModel {
 
 impl AppModel {
     /// The about page for this app.
-    pub fn about(&self) -> Element<Message> {
+    pub fn about(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = theme::active().cosmic().spacing;
 
         let icon = widget::svg(widget::svg::Handle::from_memory(APP_ICON));
@@ -503,22 +541,18 @@ impl AppModel {
 }
 
 
-async fn find_device() -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
-    let connection = zbus::Connection::system().await?;
+async fn find_device(connection: &zbus::Connection) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
     let manager = ManagerProxy::new(&connection).await?;
     let device = manager.get_default_device().await?;
     Ok(device)
 }
 
 async fn delete_fingerprint_dbus(
+    connection: &zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,
     finger: String,
 ) -> zbus::Result<()> {
-    let connection = zbus::Connection::system().await?;
-    let device = DeviceProxy::builder(&connection)
-        .path(path)?
-        .build()
-        .await?;
+    let device = DeviceProxy::builder(connection).path(path)?.build().await?;
 
     device.claim("").await?;
     device.delete_enrolled_finger(&finger).await?;
@@ -527,6 +561,7 @@ async fn delete_fingerprint_dbus(
 }
 
 async fn enroll_fingerprint_process<S>(
+    connection: zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,
     finger_name: String,
     output: &mut S,
@@ -535,7 +570,6 @@ where
     S: Sink<Message> + Unpin + Send,
     S::Error: std::fmt::Debug + Send,
 {
-    let connection = zbus::Connection::system().await?;
     let device = DeviceProxy::builder(&connection)
         .path(path)?
         .build()
