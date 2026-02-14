@@ -118,7 +118,7 @@ impl cosmic::Application for AppModel {
                     }
                 })
                 .unwrap_or_default(),
-            status: "Connecting to system bus...".to_string(),
+            status: fl!("status-connecting"),
             device_path: None,
             connection: None,
             busy: true,
@@ -337,7 +337,7 @@ impl cosmic::Application for AppModel {
         match message {
             Message::ConnectionReady(conn) => {
                 self.connection = Some(conn.clone());
-                self.status = "Searching for fingerprint reader...".to_string();
+                self.status = fl!("status-searching-device");
 
                 return Task::perform(
                     async move {
@@ -353,7 +353,7 @@ impl cosmic::Application for AppModel {
             Message::DeviceFound(path) => {
                 self.device_path = path;
                 if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
-                    self.status = "Device found. Ready.".to_string();
+                    self.status = fl!("status-device-found");
                     self.busy = false;
 
                     let path = path.clone();
@@ -370,7 +370,7 @@ impl cosmic::Application for AppModel {
                         cosmic::Action::App,
                     );
                 } else {
-                    self.status = "No fingerprint reader found.".to_string();
+                    self.status = fl!("status-no-device-found");
                     self.busy = true;
                 }
             }
@@ -483,7 +483,7 @@ impl cosmic::Application for AppModel {
                     && let (Some(path), Some(conn)) =
                         (self.device_path.clone(), self.connection.clone())
                 {
-                    self.status = format!("Deleting fingerprint {}", page.as_finger_id());
+                    self.status = fl!("deleting");
                     self.busy = true;
                     let finger_name = page.as_finger_id().to_string();
                     return Task::perform(
@@ -503,7 +503,7 @@ impl cosmic::Application for AppModel {
                     && self.device_path.is_some()
                 {
                     self.busy = true;
-                    self.status = "Starting enrollment...".to_string();
+                    self.status = fl!("status-starting-enrollment");
                     self.enrolling_finger = Some(page.as_finger_id().to_string());
                 }
             }
