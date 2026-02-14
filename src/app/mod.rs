@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use crate::accounts_dbus::{AccountsProxy, UserProxy};
 use crate::config::Config;
 use crate::fl;
 use crate::fprint_dbus::DeviceProxy;
 use cosmic::app::context_drawer;
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::widget::pick_list;
 use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
@@ -18,7 +20,7 @@ pub mod message;
 pub mod fprint;
 
 use page::{ContextPage, Page};
-use message::Message;
+use message::{Message, UserOption};
 use fprint::{
     delete_fingerprint_dbus, enroll_fingerprint_process, find_device, list_enrolled_fingers_dbus,
 };
@@ -58,6 +60,10 @@ pub struct AppModel {
     // Enrollment progress
     enroll_progress: i32,
     enroll_total_stages: i32,
+    // List of users (username, realname)
+    users: Vec<UserOption>,
+    // Selected user
+    selected_user: Option<UserOption>,
     // List of enrolled fingers
     enrolled_fingers: Vec<String>,
 }
@@ -125,6 +131,11 @@ impl cosmic::Application for AppModel {
             enrolling_finger: None,
             enroll_progress: 0,
             enroll_total_stages: 0,
+            users: Vec::new(),
+            selected_user: std::env::var("USER").ok().map(|u| UserOption {
+                username: u.clone(),
+                realname: String::new(),
+            }),
             enrolled_fingers: Vec::new(),
         };
 
@@ -212,16 +223,30 @@ impl cosmic::Application for AppModel {
             cancel_btn = cancel_btn.on_press(Message::EnrollStop);
         }
 
-        let mut column = widget::column()
-            .push(
-                text::title1(fl!("fprint"))
-                    .apply(widget::container)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .align_x(Horizontal::Center)
-                    .align_y(Vertical::Center),
-            )
-            .push(
+        let mut column = widget::column().push(
+            text::title1(fl!("fprint"))
+                .apply(widget::container)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center),
+        );
+
+        if !self.users.is_empty() {
+            column = column.push(
+                pick_list(
+                    self.users.as_slice(),
+                    self.selected_user.clone(),
+                    Message::UserSelected,
+                )
+                .width(Length::Fixed(200.0))
+                .apply(widget::container)
+                .width(Length::Fill)
+                .align_x(Horizontal::Center),
+            );
+        }
+
+        column = column.push(
                 widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
                     .width(Length::Fill)
                     .height(Length::Fill),
@@ -297,12 +322,16 @@ impl cosmic::Application for AppModel {
         ];
 
         // Add enrollment subscription if enrolling
-        if let (Some(finger_name), Some(device_path), Some(connection)) =
-            (&self.enrolling_finger, &self.device_path, &self.connection)
-        {
+        if let (Some(finger_name), Some(device_path), Some(connection), Some(user)) = (
+            &self.enrolling_finger,
+            &self.device_path,
+            &self.connection,
+            &self.selected_user,
+        ) {
             let finger_name = finger_name.clone();
             let device_path = device_path.clone();
             let connection = connection.clone();
+            let username = user.username.clone();
 
             subscriptions.push(Subscription::run_with_id(
                 std::any::TypeId::of::<EnrollmentSubscription>(),
@@ -312,6 +341,7 @@ impl cosmic::Application for AppModel {
                         connection,
                         device_path,
                         finger_name,
+                        username,
                         &mut output,
                     )
                     .await
@@ -339,28 +369,87 @@ impl cosmic::Application for AppModel {
                 self.connection = Some(conn.clone());
                 self.status = "Searching for fingerprint reader...".to_string();
 
-                return Task::perform(
+                let conn_clone = conn.clone();
+                let find_device_task = Task::perform(
                     async move {
-                        match find_device(&conn).await {
+                        match find_device(&conn_clone).await {
                             Ok(path) => Message::DeviceFound(Some(path)),
                             Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
                         }
                     },
                     cosmic::Action::App,
                 );
+
+                let conn_clone = conn.clone();
+                let fetch_users_task = Task::perform(
+                    async move {
+                        let mut users = Vec::new();
+                        // Try to get users from AccountsService
+                        if let Ok(accounts) = AccountsProxy::new(&conn_clone).await {
+                            if let Ok(user_paths) = accounts.list_cached_users().await {
+                                for path in user_paths {
+                                    if let Ok(user_proxy) = UserProxy::builder(&conn_clone)
+                                        .path(path)
+                                        .expect("path should be valid")
+                                        .build()
+                                        .await
+                                    {
+                                        if let (Ok(name), Ok(real_name)) =
+                                            (user_proxy.user_name().await, user_proxy.real_name().await)
+                                        {
+                                            users.push(UserOption {
+                                                username: name,
+                                                realname: real_name,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Fallback to current user if list is empty
+                        if users.is_empty() {
+                            if let Ok(user) = std::env::var("USER") {
+                                users.push(UserOption {
+                                    username: user.clone(),
+                                    realname: String::new(),
+                                });
+                            }
+                        }
+
+                        Message::UsersFound(users)
+                    },
+                    cosmic::Action::App,
+                );
+
+                return Task::batch(vec![find_device_task, fetch_users_task]);
             }
 
-            Message::DeviceFound(path) => {
-                self.device_path = path;
-                if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
-                    self.status = "Device found. Ready.".to_string();
-                    self.busy = false;
+            Message::UsersFound(users) => {
+                self.users = users;
+                // Ensure selected_user is valid
+                if let Some(selected) = &self.selected_user {
+                    if !self.users.iter().any(|u| u.username == selected.username) {
+                        if !self.users.is_empty() {
+                            self.selected_user = Some(self.users[0].clone());
+                        }
+                    } else if let Some(updated_user) =
+                        self.users.iter().find(|u| u.username == selected.username)
+                    {
+                        // Update realname if found
+                        self.selected_user = Some(updated_user.clone());
+                    }
+                } else if !self.users.is_empty() {
+                    self.selected_user = Some(self.users[0].clone());
+                }
 
+                if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
                     let path = path.clone();
                     let conn = conn.clone();
+                    let username = user.username.clone();
                     return Task::perform(
                         async move {
-                            match list_enrolled_fingers_dbus(&conn, path).await {
+                            match list_enrolled_fingers_dbus(&conn, path, username).await {
                                 Ok(fingers) => Message::EnrolledFingers(fingers),
                                 Err(e) => {
                                     Message::OperationError(format!("Failed to list fingers: {}", e))
@@ -369,6 +458,52 @@ impl cosmic::Application for AppModel {
                         },
                         cosmic::Action::App,
                     );
+                }
+            }
+
+            Message::UserSelected(user) => {
+                self.selected_user = Some(user.clone());
+                self.enrolled_fingers.clear();
+                if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
+                    let path = path.clone();
+                    let conn = conn.clone();
+                    let username = user.username.clone();
+                    return Task::perform(
+                        async move {
+                            match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                Ok(fingers) => Message::EnrolledFingers(fingers),
+                                Err(e) => {
+                                    Message::OperationError(format!("Failed to list fingers: {}", e))
+                                }
+                            }
+                        },
+                        cosmic::Action::App,
+                    );
+                }
+            }
+
+            Message::DeviceFound(path) => {
+                self.device_path = path;
+                if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
+                    self.status = "Device found. Ready.".to_string();
+                    self.busy = false;
+
+                    if let Some(user) = &self.selected_user {
+                        let path = path.clone();
+                        let conn = conn.clone();
+                        let username = user.username.clone();
+                        return Task::perform(
+                            async move {
+                                match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                    Ok(fingers) => Message::EnrolledFingers(fingers),
+                                    Err(e) => {
+                                        Message::OperationError(format!("Failed to list fingers: {}", e))
+                                    }
+                                }
+                            },
+                            cosmic::Action::App,
+                        );
+                    }
                 } else {
                     self.status = "No fingerprint reader found.".to_string();
                     self.busy = true;
@@ -418,12 +553,13 @@ impl cosmic::Application for AppModel {
                     self.enrolling_finger = None;
 
                     if status == "enroll-completed" {
-                        if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
+                        if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
                             let path = path.clone();
                             let conn = conn.clone();
+                            let username = user.username.clone();
                             return Task::perform(
                                 async move {
-                                    match list_enrolled_fingers_dbus(&conn, path).await {
+                                    match list_enrolled_fingers_dbus(&conn, path, username).await {
                                         Ok(fingers) => Message::EnrolledFingers(fingers),
                                         Err(e) => Message::OperationError(format!(
                                             "Failed to list fingers: {}",
@@ -460,35 +596,28 @@ impl cosmic::Application for AppModel {
             Message::DeleteComplete => {
                 self.status = fl!("deleted");
                 self.busy = false;
-
-                if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
-                    let path = path.clone();
-                    let conn = conn.clone();
-                    return Task::perform(
-                        async move {
-                            match list_enrolled_fingers_dbus(&conn, path).await {
-                                Ok(fingers) => Message::EnrolledFingers(fingers),
-                                Err(e) => {
-                                    Message::OperationError(format!("Failed to list fingers: {}", e))
-                                }
-                            }
-                        },
-                        cosmic::Action::App,
-                    );
-                }
+                self.enrolled_fingers
+                    .retain(|f| f != self.nav.data::<Page>(self.nav.active())
+                    .map(|p| p
+                    .as_finger_id())
+                    .unwrap_or_default());
             }
 
             Message::Delete => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active())
-                    && let (Some(path), Some(conn)) =
-                        (self.device_path.clone(), self.connection.clone())
+                    && let (Some(path), Some(conn), Some(user)) = (
+                        self.device_path.clone(),
+                        self.connection.clone(),
+                        self.selected_user.clone(),
+                    )
                 {
                     self.status = format!("Deleting fingerprint {}", page.as_finger_id());
                     self.busy = true;
                     let finger_name = page.as_finger_id().to_string();
                     return Task::perform(
                         async move {
-                            match delete_fingerprint_dbus(&conn, path, finger_name).await {
+                            match delete_fingerprint_dbus(&conn, path, finger_name, user.username).await
+                            {
                                 Ok(_) => Message::DeleteComplete,
                                 Err(e) => Message::OperationError(e.to_string()),
                             }
@@ -501,6 +630,7 @@ impl cosmic::Application for AppModel {
             Message::Register => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active())
                     && self.device_path.is_some()
+                    && self.selected_user.is_some()
                 {
                     self.busy = true;
                     self.status = "Starting enrollment...".to_string();
