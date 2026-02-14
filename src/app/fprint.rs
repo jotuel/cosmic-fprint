@@ -66,7 +66,7 @@ where
 
                 // Map result string to user friendly message if needed, or pass through
                 let _ = output
-                    .send(Message::EnrollStatus(result.clone(), done))
+                    .send(Message::EnrollStatus(result, done))
                     .await;
 
                 if done {
