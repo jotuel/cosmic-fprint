@@ -56,7 +56,10 @@ where
         Err(e) => return Err(e),
     };
 
-    let total_stages = device.num_enroll_stages().await.unwrap_or(-1);
+    let total_stages = match device.num_enroll_stages().await {
+        Ok(n) if n > 0 => Some(n as u32),
+        _ => None,
+    };
     let _ = output.send(Message::EnrollStart(total_stages)).await;
 
     // Start enrollment
