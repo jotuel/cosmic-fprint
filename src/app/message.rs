@@ -16,7 +16,6 @@ pub enum Message {
     EnrollStart(i32),
     EnrollStatus(String, bool),
     EnrollStop,
-    EnrollStopSuccess,
     DeleteComplete,
-    DeleteFailed(String),
+    EnrolledFingers(Vec<String>),
 }
