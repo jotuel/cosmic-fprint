@@ -463,6 +463,7 @@ impl cosmic::Application for AppModel {
 
             Message::UserSelected(user) => {
                 self.selected_user = Some(user.clone());
+                self.enrolled_fingers.clear();
                 if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
                     let path = path.clone();
                     let conn = conn.clone();
