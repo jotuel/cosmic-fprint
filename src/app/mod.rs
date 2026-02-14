@@ -596,23 +596,11 @@ impl cosmic::Application for AppModel {
             Message::DeleteComplete => {
                 self.status = fl!("deleted");
                 self.busy = false;
-
-                if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
-                    let path = path.clone();
-                    let conn = conn.clone();
-                    let username = user.username.clone();
-                    return Task::perform(
-                        async move {
-                            match list_enrolled_fingers_dbus(&conn, path, username).await {
-                                Ok(fingers) => Message::EnrolledFingers(fingers),
-                                Err(e) => {
-                                    Message::OperationError(format!("Failed to list fingers: {}", e))
-                                }
-                            }
-                        },
-                        cosmic::Action::App,
-                    );
-                }
+                self.enrolled_fingers
+                    .retain(|f| f != self.nav.data::<Page>(self.nav.active())
+                    .map(|p| p
+                    .as_finger_id())
+                    .unwrap_or_default());
             }
 
             Message::Delete => {
