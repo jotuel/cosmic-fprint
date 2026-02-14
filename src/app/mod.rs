@@ -56,8 +56,8 @@ pub struct AppModel {
     // Finger currently being enrolled (None if not enrolling)
     enrolling_finger: Option<String>,
     // Enrollment progress
-    enroll_progress: i32,
-    enroll_total_stages: i32,
+    enroll_progress: u32,
+    enroll_total_stages: Option<u32>,
     // List of enrolled fingers
     enrolled_fingers: Vec<String>,
 }
@@ -124,7 +124,7 @@ impl cosmic::Application for AppModel {
             busy: true,
             enrolling_finger: None,
             enroll_progress: 0,
-            enroll_total_stages: 0,
+            enroll_total_stages: None,
             enrolled_fingers: Vec::new(),
         };
 
@@ -234,14 +234,13 @@ impl cosmic::Application for AppModel {
                     .align_x(Horizontal::Center),
             );
 
-        if self.enrolling_finger.is_some() && self.enroll_total_stages > 0 {
-            column = column.push(
-                widget::progress_bar(
-                    0.0..=(self.enroll_total_stages as f32),
-                    self.enroll_progress as f32,
-                )
-                .height(PROGRESS_BAR_HEIGHT),
-            );
+        if self.enrolling_finger.is_some() {
+            if let Some(total) = self.enroll_total_stages {
+                column = column.push(
+                    widget::progress_bar(0.0..=(total as f32), self.enroll_progress as f32)
+                        .height(PROGRESS_BAR_HEIGHT),
+                );
+            }
         }
 
         let mut row = widget::row()
