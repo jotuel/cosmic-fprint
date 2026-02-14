@@ -21,10 +21,13 @@ pub mod fprint;
 
 use page::{ContextPage, Page};
 use message::{Message, UserOption};
-use fprint::{delete_fingerprint_dbus, enroll_fingerprint_process, find_device};
+use fprint::{
+    delete_fingerprint_dbus, enroll_fingerprint_process, find_device, list_enrolled_fingers_dbus,
+};
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/icon.svg");
+const FPRINT_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/fprint.svg");
 
 const STATUS_TEXT_SIZE: u16 = 16;
 const PROGRESS_BAR_HEIGHT: u16 = 10;
@@ -61,6 +64,8 @@ pub struct AppModel {
     users: Vec<UserOption>,
     // Selected user
     selected_user: Option<UserOption>,
+    // List of enrolled fingers
+    enrolled_fingers: Vec<String>,
 }
 
 /// Create a COSMIC application from the app model
@@ -131,6 +136,7 @@ impl cosmic::Application for AppModel {
                 username: u.clone(),
                 realname: String::new(),
             }),
+            enrolled_fingers: Vec::new(),
         };
 
         // Create a startup command that sets the window title.
@@ -191,6 +197,12 @@ impl cosmic::Application for AppModel {
         let buttons_enabled =
             !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
 
+        let current_page = self.nav.data::<Page>(self.nav.active());
+        let current_finger = current_page.map(|p| p.as_finger_id());
+        let is_enrolled = current_finger
+            .map(|f| self.enrolled_fingers.iter().any(|ef| ef == f))
+            .unwrap_or(false);
+
         let register_btn = widget::button::text(fl!("register"));
         let delete_btn = widget::button::text(fl!("delete"));
 
@@ -200,7 +212,7 @@ impl cosmic::Application for AppModel {
             register_btn
         };
 
-        let delete_btn = if buttons_enabled {
+        let delete_btn = if buttons_enabled && is_enrolled {
             delete_btn.on_press(Message::Delete)
         } else {
             delete_btn
@@ -236,11 +248,9 @@ impl cosmic::Application for AppModel {
 
         column = column
             .push(
-                widget::svg(widget::svg::Handle::from_path(std::path::PathBuf::from(
-                    "resources/icons/hicolor/scalable/apps/fprint.svg",
-                )))
-                .width(Length::Fill)
-                .height(Length::Fill),
+                widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
+                    .width(Length::Fill)
+                    .height(Length::Fill),
             )
             .push(
                 widget::text(&self.status)
@@ -433,21 +443,75 @@ impl cosmic::Application for AppModel {
                 } else if !self.users.is_empty() {
                     self.selected_user = Some(self.users[0].clone());
                 }
+
+                if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
+                    let path = path.clone();
+                    let conn = conn.clone();
+                    let username = user.username.clone();
+                    return Task::perform(
+                        async move {
+                            match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                Ok(fingers) => Message::EnrolledFingers(fingers),
+                                Err(e) => {
+                                    Message::OperationError(format!("Failed to list fingers: {}", e))
+                                }
+                            }
+                        },
+                        cosmic::Action::App,
+                    );
+                }
             }
 
             Message::UserSelected(user) => {
-                self.selected_user = Some(user);
+                self.selected_user = Some(user.clone());
+                if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
+                    let path = path.clone();
+                    let conn = conn.clone();
+                    let username = user.username.clone();
+                    return Task::perform(
+                        async move {
+                            match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                Ok(fingers) => Message::EnrolledFingers(fingers),
+                                Err(e) => {
+                                    Message::OperationError(format!("Failed to list fingers: {}", e))
+                                }
+                            }
+                        },
+                        cosmic::Action::App,
+                    );
+                }
             }
 
             Message::DeviceFound(path) => {
                 self.device_path = path;
-                if self.device_path.is_some() {
+                if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
                     self.status = "Device found. Ready.".to_string();
                     self.busy = false;
+
+                    if let Some(user) = &self.selected_user {
+                        let path = path.clone();
+                        let conn = conn.clone();
+                        let username = user.username.clone();
+                        return Task::perform(
+                            async move {
+                                match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                    Ok(fingers) => Message::EnrolledFingers(fingers),
+                                    Err(e) => {
+                                        Message::OperationError(format!("Failed to list fingers: {}", e))
+                                    }
+                                }
+                            },
+                            cosmic::Action::App,
+                        );
+                    }
                 } else {
                     self.status = "No fingerprint reader found.".to_string();
                     self.busy = true;
                 }
+            }
+
+            Message::EnrolledFingers(fingers) => {
+                self.enrolled_fingers = fingers;
             }
 
             Message::OperationError(err) => {
@@ -487,6 +551,26 @@ impl cosmic::Application for AppModel {
                 if done {
                     self.busy = false;
                     self.enrolling_finger = None;
+
+                    if status == "enroll-completed" {
+                        if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
+                            let path = path.clone();
+                            let conn = conn.clone();
+                            let username = user.username.clone();
+                            return Task::perform(
+                                async move {
+                                    match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                        Ok(fingers) => Message::EnrolledFingers(fingers),
+                                        Err(e) => Message::OperationError(format!(
+                                            "Failed to list fingers: {}",
+                                            e
+                                        )),
+                                    }
+                                },
+                                cosmic::Action::App,
+                            );
+                        }
+                    }
                 }
             }
 
@@ -515,6 +599,23 @@ impl cosmic::Application for AppModel {
             Message::DeleteComplete => {
                 self.status = fl!("deleted");
                 self.busy = false;
+
+                if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
+                    let path = path.clone();
+                    let conn = conn.clone();
+                    let username = user.username.clone();
+                    return Task::perform(
+                        async move {
+                            match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                Ok(fingers) => Message::EnrolledFingers(fingers),
+                                Err(e) => {
+                                    Message::OperationError(format!("Failed to list fingers: {}", e))
+                                }
+                            }
+                        },
+                        cosmic::Action::App,
+                    );
+                }
             }
 
             Message::Delete => {

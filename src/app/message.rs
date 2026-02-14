@@ -17,6 +17,7 @@ pub enum Message {
     EnrollStatus(String, bool),
     EnrollStop,
     DeleteComplete,
+    EnrolledFingers(Vec<String>),
     UsersFound(Vec<UserOption>),
     UserSelected(UserOption),
 }
