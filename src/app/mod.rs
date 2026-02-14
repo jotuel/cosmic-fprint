@@ -25,6 +25,12 @@ use fprint::{
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/icon.svg");
+const FPRINT_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/fprint.svg");
+
+const STATUS_TEXT_SIZE: u16 = 16;
+const PROGRESS_BAR_HEIGHT: u16 = 10;
+const MAIN_SPACING: u16 = 20;
+const MAIN_PADDING: u16 = 20;
 
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
@@ -216,15 +222,13 @@ impl cosmic::Application for AppModel {
                     .align_y(Vertical::Center),
             )
             .push(
-                widget::svg(widget::svg::Handle::from_path(std::path::PathBuf::from(
-                    "resources/icons/hicolor/scalable/apps/fprint.svg",
-                )))
-                .width(Length::Fill)
-                .height(Length::Fill),
+                widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
+                    .width(Length::Fill)
+                    .height(Length::Fill),
             )
             .push(
                 widget::text(&self.status)
-                    .size(16)
+                    .size(STATUS_TEXT_SIZE)
                     .apply(widget::container)
                     .width(Length::Fill)
                     .align_x(Horizontal::Center),
@@ -236,7 +240,7 @@ impl cosmic::Application for AppModel {
                     0.0..=(self.enroll_total_stages as f32),
                     self.enroll_progress as f32,
                 )
-                .height(10),
+                .height(PROGRESS_BAR_HEIGHT),
             );
         }
 
@@ -255,11 +259,11 @@ impl cosmic::Application for AppModel {
                     .height(Length::Fill)
                     .align_x(Horizontal::Center)
                     .align_y(Vertical::Center)
-                    .padding(20),
+                    .padding(MAIN_PADDING),
             )
             .align_x(Horizontal::Center)
-            .spacing(20)
-            .padding(20)
+            .spacing(MAIN_SPACING)
+            .padding(MAIN_PADDING)
             .into()
     }
 
@@ -339,9 +343,7 @@ impl cosmic::Application for AppModel {
                     async move {
                         match find_device(&conn).await {
                             Ok(path) => Message::DeviceFound(Some(path)),
-                            Err(e) => {
-                                Message::OperationError(format!("Failed to find device: {}", e))
-                            }
+                            Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
                         }
                     },
                     cosmic::Action::App,
@@ -443,39 +445,12 @@ impl cosmic::Application for AppModel {
                     return Task::perform(
                         async move {
                             let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
-                            device.enroll_stop().await?;
-                            Ok::<(), zbus::Error>(())
-                        },
-                        |res| match res {
-                            Ok(_) => cosmic::Action::App(Message::EnrollStopSuccess),
-                            Err(e) => {
-                                let _ = cosmic::Action::App(Message::OperationError(e.to_string()));
-                                cosmic::Action::App(Message::EnrollStopSuccess)
-                            },
-                        },
-                    );
-                }
-            }
-
-            Message::EnrollStopSuccess => {
-                self.busy = false;
-                self.enrolling_finger = None;
-                self.status = fl!("enroll-cancelled");
-
-                if let (Some(path), Some(conn)) =
-                    (self.device_path.clone(), self.connection.clone())
-                {
-                    return Task::perform(
-                        async move {
-                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
+                            let _ = device.enroll_stop().await;
                             device.release().await?;
                             Ok::<(), zbus::Error>(())
                         },
                         |res| match res {
-                            Ok(_) => cosmic::Action::App(Message::EnrollStatus(
-                                "enroll-cancelled".to_string(),
-                                true,
-                            )),
+                            Ok(_) => cosmic::Action::App(Message::EnrollStatus("enroll-cancelled".to_string(), true)),
                             Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
                         },
                     );
@@ -483,7 +458,7 @@ impl cosmic::Application for AppModel {
             }
 
             Message::DeleteComplete => {
-                self.status = "Fingerprint was deleted.".to_string();
+                self.status = fl!("deleted");
                 self.busy = false;
 
                 if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
@@ -503,43 +478,19 @@ impl cosmic::Application for AppModel {
                 }
             }
 
-            Message::DeleteFailed(err) => {
-                self.busy = false;
-
-                if let (Some(path), Some(conn)) =
-                    (self.device_path.clone(), self.connection.clone())
-                {
-                    return Task::perform(
-                        async move {
-                            let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
-                            device.release().await?;
-                            Ok::<(), zbus::Error>(())
-                        },
-                        move |res| match res {
-                            Ok(_) => cosmic::Action::App(Message::EnrollStatus(
-                                Self::map_error(&err),
-                                true,
-                            )),
-                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
-                        },
-                    );
-
-                }
-            }
-
             Message::Delete => {
                 if let Some(page) = self.nav.data::<Page>(self.nav.active())
                     && let (Some(path), Some(conn)) =
                         (self.device_path.clone(), self.connection.clone())
                 {
+                    self.status = format!("Deleting fingerprint {}", page.as_finger_id());
                     self.busy = true;
                     let finger_name = page.as_finger_id().to_string();
-                    self.status = format!("Deleting fingerprint {}", finger_name);
                     return Task::perform(
                         async move {
                             match delete_fingerprint_dbus(&conn, path, finger_name).await {
                                 Ok(_) => Message::DeleteComplete,
-                                Err(e) => Message::DeleteFailed(e.to_string()),
+                                Err(e) => Message::OperationError(e.to_string()),
                             }
                         },
                         cosmic::Action::App,

@@ -27,9 +27,9 @@ pub async fn delete_fingerprint_dbus(
     let device = DeviceProxy::builder(connection).path(path)?.build().await?;
 
     device.claim("").await?;
-    device.delete_enrolled_finger(&finger).await?;
-    device.release().await?;
-    Ok(())
+    let res = device.delete_enrolled_finger(&finger).await;
+    let rel_res = device.release().await;
+    res.and(rel_res)
 }
 
 pub async fn enroll_fingerprint_process<S>(
@@ -63,7 +63,13 @@ where
     }
 
     // Listen for signals
-    let mut stream = device.receive_enroll_status().await?;
+    let mut stream = match device.receive_enroll_status().await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = device.release().await;
+            return Err(e);
+        }
+    };
 
     while let Some(signal) = stream.next().await {
         let args = signal.args();
@@ -74,7 +80,7 @@ where
 
                 // Map result string to user friendly message if needed, or pass through
                 let _ = output
-                    .send(Message::EnrollStatus(result.clone(), done))
+                    .send(Message::EnrollStatus(result, done))
                     .await;
 
                 if done {

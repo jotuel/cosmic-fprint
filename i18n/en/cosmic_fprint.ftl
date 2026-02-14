@@ -6,7 +6,10 @@ welcome = Register and/or delete fingerprints
 git-description = Git commit {$hash} on {$date}
 register = Register
 delete = Delete
+deleting = Deleting fingerprint...
+deleted = Deleted fingerprint.
 cancel = Cancel
+
 
 page-right-thumb = Right Thumb
 page-right-index-finger = Right Index Finger
