@@ -24,6 +24,11 @@ use fprint::{delete_fingerprint_dbus, enroll_fingerprint_process, find_device};
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/icon.svg");
 
+const STATUS_TEXT_SIZE: u16 = 16;
+const PROGRESS_BAR_HEIGHT: u16 = 10;
+const MAIN_SPACING: u16 = 20;
+const MAIN_PADDING: u16 = 20;
+
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
 pub struct AppModel {
@@ -213,7 +218,7 @@ impl cosmic::Application for AppModel {
             )
             .push(
                 widget::text(&self.status)
-                    .size(16)
+                    .size(STATUS_TEXT_SIZE)
                     .apply(widget::container)
                     .width(Length::Fill)
                     .align_x(Horizontal::Center),
@@ -225,7 +230,7 @@ impl cosmic::Application for AppModel {
                     0.0..=(self.enroll_total_stages as f32),
                     self.enroll_progress as f32,
                 )
-                .height(10),
+                .height(PROGRESS_BAR_HEIGHT),
             );
         }
 
@@ -244,11 +249,11 @@ impl cosmic::Application for AppModel {
                     .height(Length::Fill)
                     .align_x(Horizontal::Center)
                     .align_y(Vertical::Center)
-                    .padding(20),
+                    .padding(MAIN_PADDING),
             )
             .align_x(Horizontal::Center)
-            .spacing(20)
-            .padding(20)
+            .spacing(MAIN_SPACING)
+            .padding(MAIN_PADDING)
             .into()
     }
 
