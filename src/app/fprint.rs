@@ -14,19 +14,21 @@ pub async fn find_device(
 pub async fn list_enrolled_fingers_dbus(
     connection: &zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,
+    username: String,
 ) -> zbus::Result<Vec<String>> {
     let device = DeviceProxy::builder(connection).path(path)?.build().await?;
-    device.list_enrolled_fingers("").await
+    device.list_enrolled_fingers(&username).await
 }
 
 pub async fn delete_fingerprint_dbus(
     connection: &zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,
     finger: String,
+    username: String,
 ) -> zbus::Result<()> {
     let device = DeviceProxy::builder(connection).path(path)?.build().await?;
 
-    device.claim("").await?;
+    device.claim(&username).await?;
     let res = device.delete_enrolled_finger(&finger).await;
     let rel_res = device.release().await;
     res.and(rel_res)
@@ -36,6 +38,7 @@ pub async fn enroll_fingerprint_process<S>(
     connection: zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,
     finger_name: String,
+    username: String,
     output: &mut S,
 ) -> zbus::Result<()>
 where
@@ -48,7 +51,7 @@ where
         .await?;
 
     // Claim device
-    match device.claim("").await {
+    match device.claim(&username).await {
         Ok(_) => {}
         Err(e) => return Err(e),
     };
