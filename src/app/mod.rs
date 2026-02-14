@@ -246,8 +246,7 @@ impl cosmic::Application for AppModel {
             );
         }
 
-        column = column
-            .push(
+        column = column.push(
                 widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
                     .width(Length::Fill)
                     .height(Length::Fill),
@@ -586,10 +585,7 @@ impl cosmic::Application for AppModel {
                             Ok::<(), zbus::Error>(())
                         },
                         |res| match res {
-                            Ok(_) => cosmic::Action::App(Message::EnrollStatus(
-                                "enroll-cancelled".to_string(),
-                                true,
-                            )),
+                            Ok(_) => cosmic::Action::App(Message::EnrollStatus("enroll-cancelled".to_string(), true)),
                             Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
                         },
                     );
