@@ -23,6 +23,7 @@ use fprint::{delete_fingerprint_dbus, enroll_fingerprint_process, find_device};
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/icon.svg");
+const FPRINT_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/fprint.svg");
 
 const STATUS_TEXT_SIZE: u16 = 16;
 const PROGRESS_BAR_HEIGHT: u16 = 10;
@@ -210,11 +211,9 @@ impl cosmic::Application for AppModel {
                     .align_y(Vertical::Center),
             )
             .push(
-                widget::svg(widget::svg::Handle::from_path(std::path::PathBuf::from(
-                    "resources/icons/hicolor/scalable/apps/fprint.svg",
-                )))
-                .width(Length::Fill)
-                .height(Length::Fill),
+                widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
+                    .width(Length::Fill)
+                    .height(Length::Fill),
             )
             .push(
                 widget::text(&self.status)
