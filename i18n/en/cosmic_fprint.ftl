@@ -22,6 +22,12 @@ page-left-middle-finger = Left Middle Finger
 page-left-ring-finger = Left Ring Finger
 page-left-little-finger = Left Little Finger
 
+status-connecting = Connecting to system bus...
+status-searching-device = Searching for fingerprint reader...
+status-device-found = Device found. Ready.
+status-no-device-found = No fingerprint reader found.
+status-starting-enrollment = Starting enrollment...
+
 enroll-starting = Place your finger on the reader to start.
 enroll-stage-passed = Scan successful. Keep going.
 enroll-retry-scan = Could not read fingerprint. Please try again.
