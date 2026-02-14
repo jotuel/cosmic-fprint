@@ -19,4 +19,5 @@ pub enum Message {
     EnrollStopSuccess,
     DeleteComplete,
     DeleteFailed(String),
+    EnrolledFingers(Vec<String>),
 }
