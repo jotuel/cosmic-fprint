@@ -16,7 +16,23 @@ pub enum Message {
     EnrollStart(i32),
     EnrollStatus(String, bool),
     EnrollStop,
-    EnrollStopSuccess,
     DeleteComplete,
-    DeleteFailed(String),
+    UsersFound(Vec<UserOption>),
+    UserSelected(UserOption),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UserOption {
+    pub username: String,
+    pub realname: String,
+}
+
+impl std::fmt::Display for UserOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.realname.is_empty() {
+            write!(f, "{}", self.username)
+        } else {
+            write!(f, "{} ({})", self.realname, self.username)
+        }
+    }
 }
