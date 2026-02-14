@@ -5,4 +5,6 @@
 0.3.2: Improved error responses
 0.3.3: Refactored init to use loops
 0.3.4: Added Flatpak
-0.3.5: Performance optimization: avoid redundant string clone in signal handler
+0.3.5:
+  - Disable delete button if fingerprint is not enrolled
+  - Performance optimization: avoid redundant string clone in signal handler

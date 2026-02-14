@@ -11,6 +11,14 @@ pub async fn find_device(
     Ok(device)
 }
 
+pub async fn list_enrolled_fingers_dbus(
+    connection: &zbus::Connection,
+    path: zbus::zvariant::OwnedObjectPath,
+) -> zbus::Result<Vec<String>> {
+    let device = DeviceProxy::builder(connection).path(path)?.build().await?;
+    device.list_enrolled_fingers("").await
+}
+
 pub async fn delete_fingerprint_dbus(
     connection: &zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,
