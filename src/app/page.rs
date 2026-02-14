@@ -105,4 +105,18 @@ mod tests {
         assert!(!Page::LeftRing.localized_name().is_empty());
         assert!(!Page::LeftPinky.localized_name().is_empty());
     }
+
+    #[test]
+    fn test_page_as_finger_id() {
+        assert_eq!(Page::RightThumb.as_finger_id(), "right-thumb");
+        assert_eq!(Page::RightIndex.as_finger_id(), "right-index-finger");
+        assert_eq!(Page::RightMiddle.as_finger_id(), "right-middle-finger");
+        assert_eq!(Page::RightRing.as_finger_id(), "right-ring-finger");
+        assert_eq!(Page::RightPinky.as_finger_id(), "right-little-finger");
+        assert_eq!(Page::LeftThumb.as_finger_id(), "left-thumb");
+        assert_eq!(Page::LeftIndex.as_finger_id(), "left-index-finger");
+        assert_eq!(Page::LeftMiddle.as_finger_id(), "left-middle-finger");
+        assert_eq!(Page::LeftRing.as_finger_id(), "left-ring-finger");
+        assert_eq!(Page::LeftPinky.as_finger_id(), "left-little-finger");
+    }
 }
