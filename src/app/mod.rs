@@ -14,6 +14,7 @@ use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::SinkExt;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub mod page;
 pub mod message;
@@ -52,13 +53,13 @@ pub struct AppModel {
     // Status text for the UI
     status: String,
     // Currently selected device path
-    device_path: Option<zbus::zvariant::OwnedObjectPath>,
+    device_path: Option<Arc<zbus::zvariant::OwnedObjectPath>>,
     // Shared DBus connection
     connection: Option<zbus::Connection>,
     // Whether an operation is in progress
     busy: bool,
     // Finger currently being enrolled (None if not enrolling)
-    enrolling_finger: Option<String>,
+    enrolling_finger: Option<Arc<String>>,
     // Enrollment progress
     enroll_progress: u32,
     enroll_total_stages: Option<u32>,
@@ -135,8 +136,8 @@ impl cosmic::Application for AppModel {
             enroll_total_stages: None,
             users: Vec::new(),
             selected_user: std::env::var("USER").ok().map(|u| UserOption {
-                username: u.clone(),
-                realname: String::new(),
+                username: Arc::new(u.clone()),
+                realname: Arc::new(String::new()),
             }),
             enrolled_fingers: Vec::new(),
         };
@@ -332,12 +333,15 @@ impl cosmic::Application for AppModel {
             let finger_name = finger_name.clone();
             let device_path = device_path.clone();
             let connection = connection.clone();
-            let username = user.username.clone();
+            let user = user.clone();
 
             subscriptions.push(Subscription::run_with_id(
                 std::any::TypeId::of::<EnrollmentSubscription>(),
                 cosmic::iced::stream::channel(100, move |mut output| async move {
                     // Implement enrollment stream here
+                    let username = (*user.username).clone();
+                    let device_path = (*device_path).clone();
+                    let finger_name = (*finger_name).clone();
                     match enroll_fingerprint_process(
                         connection,
                         device_path,
@@ -406,8 +410,8 @@ impl cosmic::Application for AppModel {
                                             (user_proxy.user_name().await, user_proxy.real_name().await)
                                         {
                                             users.push(UserOption {
-                                                username: name,
-                                                realname: real_name,
+                                                username: Arc::new(name),
+                                                realname: Arc::new(real_name),
                                             });
                                         }
                                     }
@@ -419,8 +423,8 @@ impl cosmic::Application for AppModel {
                         if users.is_empty() {
                             if let Ok(user) = std::env::var("USER") {
                                 users.push(UserOption {
-                                    username: user.clone(),
-                                    realname: String::new(),
+                                    username: Arc::new(user.clone()),
+                                    realname: Arc::new(String::new()),
                                 });
                             }
                         }
@@ -452,9 +456,9 @@ impl cosmic::Application for AppModel {
                 }
 
                 if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
-                    let path = path.clone();
+                    let path = (**path).clone();
                     let conn = conn.clone();
-                    let username = user.username.clone();
+                    let username = (*user.username).clone();
                     return Task::perform(
                         async move {
                             match list_enrolled_fingers_dbus(&conn, path, username).await {
@@ -473,9 +477,9 @@ impl cosmic::Application for AppModel {
                 self.selected_user = Some(user.clone());
                 self.enrolled_fingers.clear();
                 if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
-                    let path = path.clone();
+                    let path = (**path).clone();
                     let conn = conn.clone();
-                    let username = user.username.clone();
+                    let username = (*user.username).clone();
                     return Task::perform(
                         async move {
                             match list_enrolled_fingers_dbus(&conn, path, username).await {
@@ -491,15 +495,15 @@ impl cosmic::Application for AppModel {
             }
 
             Message::DeviceFound(path) => {
-                self.device_path = path;
+                self.device_path = path.map(Arc::new);
                 if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
                     self.status = fl!("status-device-found");
                     self.busy = false;
 
                     if let Some(user) = &self.selected_user {
-                        let path = path.clone();
+                        let path = (**path).clone();
                         let conn = conn.clone();
-                        let username = user.username.clone();
+                        let username = (*user.username).clone();
                         return Task::perform(
                             async move {
                                 match list_enrolled_fingers_dbus(&conn, path, username).await {
@@ -562,9 +566,9 @@ impl cosmic::Application for AppModel {
 
                     if status == "enroll-completed" {
                         if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
-                            let path = path.clone();
+                            let path = (**path).clone();
                             let conn = conn.clone();
-                            let username = user.username.clone();
+                            let username = (*user.username).clone();
                             return Task::perform(
                                 async move {
                                     match list_enrolled_fingers_dbus(&conn, path, username).await {
@@ -585,6 +589,7 @@ impl cosmic::Application for AppModel {
                 if let (Some(path), Some(conn)) =
                     (self.device_path.clone(), self.connection.clone())
                 {
+                    let path = (*path).clone();
                     return Task::perform(
                         async move {
                             let device = DeviceProxy::builder(&conn).path(path)?.build().await?;
@@ -621,9 +626,11 @@ impl cosmic::Application for AppModel {
                     self.status = fl!("deleting");
                     self.busy = true;
                     let finger_name = page.as_finger_id().to_string();
+                    let path = (*path).clone();
+                    let username = (*user.username).clone();
                     return Task::perform(
                         async move {
-                            match delete_fingerprint_dbus(&conn, path, finger_name, user.username).await
+                            match delete_fingerprint_dbus(&conn, path, finger_name, username).await
                             {
                                 Ok(_) => Message::DeleteComplete,
                                 Err(e) => Message::OperationError(AppError::from(e)),
@@ -640,8 +647,8 @@ impl cosmic::Application for AppModel {
                     && self.selected_user.is_some()
                 {
                     self.busy = true;
+                    self.enrolling_finger = Some(Arc::new(page.as_finger_id().to_string()));
                     self.status = fl!("status-starting-enrollment");
-                    self.enrolling_finger = Some(page.as_finger_id().to_string());
                 }
             }
 
