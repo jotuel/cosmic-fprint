@@ -10,7 +10,7 @@ You're using Linux or freedesktop compatible system with a supported fingerprint
 
 Choose which finger to register or delete by a tab. Change user from a menu (default is current session.)</br> Click the action you want to take. Prompts you for your password. Follow instruction.</br> If you don't have correct rights or incorrect password your attempt will be dismissed.
 
-[google_screen_recording_2026-01-28T11-02_01.789Z.webm](https://github.com/user-attachments/assets/f12d923b-a290-4e45-94bd-aa39f6ed6782)
+[recording-2026-02-16_00-19-25.webm](https://github.com/user-attachments/assets/5c22b844-157a-41f2-9c07-83a073bd0d6b)
 
 ## Todos
 
