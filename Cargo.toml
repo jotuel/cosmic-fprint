@@ -1,6 +1,6 @@
 [package]
 name = "cosmic-fprint"
-version = "0.3.6"
+version = "0.3.7"
 edition = "2024"
 license = "MPL-2.0"
 description = "COSMIC™ GUI for fprintd fingerprint enrolling"
