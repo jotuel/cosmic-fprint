@@ -1,4 +1,4 @@
-app-id: fi.joonastuomi.CosmicFprint
+app-id: fi.joonastuomi.Fprint
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
@@ -33,13 +33,13 @@ modules:
       - install -Dm0755 target/release/cosmic-ext-fprint /app/bin/cosmic-ext-fprint
 
       # Install the desktop file
-      - install -Dm0644 resources/app.desktop /app/share/applications/fi.joonastuomi.CosmicFprint.desktop
+      - install -Dm0644 resources/app.desktop /app/share/applications/fi.joonastuomi.Fprint.desktop
 
       # Install the AppStream metadata
-      - install -Dm0644 resources/app.metainfo.xml /app/share/appdata/fi.joonastuomi.CosmicFprint.metainfo.xml
+      - install -Dm0644 resources/app.metainfo.xml /app/share/appdata/fi.joonastuomi.Fprint.metainfo.xml
 
       # Install the icon
-      - install -Dm0644 resources/icons/hicolor/scalable/apps/icon.svg /app/share/icons/hicolor/scalable/apps/fi.joonastuomi.CosmicFprint.svg
+      - install -Dm0644 resources/icons/hicolor/scalable/apps/icon.svg /app/share/icons/hicolor/scalable/apps/fi.joonastuomi.Fprint.svg
 
     sources:
       - type: dir
