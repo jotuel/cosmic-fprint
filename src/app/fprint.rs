@@ -1,5 +1,6 @@
 use crate::fprint_dbus::{DeviceProxy, ManagerProxy};
 use crate::app::message::Message;
+use crate::app::error::AppError;
 use futures_util::sink::Sink;
 use futures_util::{SinkExt, StreamExt};
 
@@ -93,7 +94,7 @@ where
             Err(_) => {
                 let _ = output
                     .send(Message::OperationError(
-                        "Failed to parse signal".to_string(),
+                        AppError::Unknown("Failed to parse signal".to_string()),
                     ))
                     .await;
                 break;
