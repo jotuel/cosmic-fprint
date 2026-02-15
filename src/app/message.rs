@@ -1,5 +1,7 @@
 use crate::config::Config;
 use crate::app::page::ContextPage;
+use std::sync::Arc;
+use crate::app::error::AppError;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -12,8 +14,8 @@ pub enum Message {
     Register,
     ConnectionReady(zbus::Connection),
     DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
-    OperationError(String),
-    EnrollStart(i32),
+    OperationError(AppError),
+    EnrollStart(Option<u32>),
     EnrollStatus(String, bool),
     EnrollStop,
     DeleteComplete,
@@ -24,8 +26,8 @@ pub enum Message {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserOption {
-    pub username: String,
-    pub realname: String,
+    pub username: Arc<String>,
+    pub realname: Arc<String>,
 }
 
 impl std::fmt::Display for UserOption {

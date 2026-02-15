@@ -1,5 +1,6 @@
 use crate::fprint_dbus::{DeviceProxy, ManagerProxy};
 use crate::app::message::Message;
+use crate::app::error::AppError;
 use futures_util::sink::Sink;
 use futures_util::{SinkExt, StreamExt};
 
@@ -56,7 +57,10 @@ where
         Err(e) => return Err(e),
     };
 
-    let total_stages = device.num_enroll_stages().await.unwrap_or(-1);
+    let total_stages = match device.num_enroll_stages().await {
+        Ok(n) if n > 0 => Some(n as u32),
+        _ => None,
+    };
     let _ = output.send(Message::EnrollStart(total_stages)).await;
 
     // Start enrollment
@@ -93,7 +97,7 @@ where
             Err(_) => {
                 let _ = output
                     .send(Message::OperationError(
-                        "Failed to parse signal".to_string(),
+                        AppError::Unknown("Failed to parse signal".to_string()),
                     ))
                     .await;
                 break;

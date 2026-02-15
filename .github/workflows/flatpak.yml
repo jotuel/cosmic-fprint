@@ -7,6 +7,9 @@ on:
     branches:
      - main
 
+permissions:
+  contents: write
+
 jobs:
   flatpak:
     runs-on: ubuntu-latest
@@ -23,3 +26,15 @@ jobs:
           bundle: cosmic-fprint.flatpak
           manifest-path: flatpak/fi.joonastuomi.CosmicFprint.yml
           cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Create Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly
+          name: Nightly Build
+          files: cosmic-fprint.flatpak
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
