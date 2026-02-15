@@ -24,7 +24,7 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: cosmic-fprint.flatpak
-          manifest-path: flatpak/fi.joonastuomi.CosmicFprint.yml
+          manifest-path: flatpak/fi.joonastuomi.Fprint.yml
           cache-key: flatpak-builder-${{ github.sha }}
 
       - name: Get version
