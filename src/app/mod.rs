@@ -18,12 +18,14 @@ use std::collections::HashMap;
 pub mod page;
 pub mod message;
 pub mod fprint;
+pub mod error;
 
 use page::{ContextPage, Page};
 use message::{Message, UserOption};
 use fprint::{
     delete_fingerprint_dbus, enroll_fingerprint_process, find_device, list_enrolled_fingers_dbus,
 };
+use error::AppError;
 
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 const APP_ICON: &[u8] = include_bytes!("../../resources/icons/hicolor/scalable/apps/icon.svg");
@@ -147,7 +149,7 @@ impl cosmic::Application for AppModel {
             async move {
                 match zbus::Connection::system().await {
                     Ok(conn) => Message::ConnectionReady(conn),
-                    Err(e) => Message::OperationError(format!("Failed to connect to DBus: {}", e)),
+                    Err(e) => Message::OperationError(AppError::Unknown(format!("Failed to connect to DBus: {}", e))),
                 }
             },
             cosmic::Action::App,
@@ -347,7 +349,7 @@ impl cosmic::Application for AppModel {
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            let _ = output.send(Message::OperationError(e.to_string())).await;
+                            let _ = output.send(Message::OperationError(AppError::from(e))).await;
                         }
                     }
                     futures_util::future::pending().await
@@ -373,7 +375,14 @@ impl cosmic::Application for AppModel {
                     async move {
                         match find_device(&conn_clone).await {
                             Ok(path) => Message::DeviceFound(Some(path)),
-                            Err(e) => Message::OperationError(format!("Failed to find device: {}", e)),
+                            Err(e) => {
+                                let error = AppError::from(e);
+                                if matches!(error, AppError::Unknown(_)) {
+                                    Message::OperationError(AppError::DeviceNotFound)
+                                } else {
+                                    Message::OperationError(error)
+                                }
+                            }
                         }
                     },
                     cosmic::Action::App,
@@ -451,7 +460,7 @@ impl cosmic::Application for AppModel {
                             match list_enrolled_fingers_dbus(&conn, path, username).await {
                                 Ok(fingers) => Message::EnrolledFingers(fingers),
                                 Err(e) => {
-                                    Message::OperationError(format!("Failed to list fingers: {}", e))
+                                    Message::OperationError(AppError::from(e).with_context("Failed to list fingers"))
                                 }
                             }
                         },
@@ -472,7 +481,7 @@ impl cosmic::Application for AppModel {
                             match list_enrolled_fingers_dbus(&conn, path, username).await {
                                 Ok(fingers) => Message::EnrolledFingers(fingers),
                                 Err(e) => {
-                                    Message::OperationError(format!("Failed to list fingers: {}", e))
+                                    Message::OperationError(AppError::from(e).with_context("Failed to list fingers"))
                                 }
                             }
                         },
@@ -496,7 +505,7 @@ impl cosmic::Application for AppModel {
                                 match list_enrolled_fingers_dbus(&conn, path, username).await {
                                     Ok(fingers) => Message::EnrolledFingers(fingers),
                                     Err(e) => {
-                                        Message::OperationError(format!("Failed to list fingers: {}", e))
+                                        Message::OperationError(AppError::from(e).with_context("Failed to list fingers"))
                                     }
                                 }
                             },
@@ -514,7 +523,7 @@ impl cosmic::Application for AppModel {
             }
 
             Message::OperationError(err) => {
-                self.status = Self::map_error(&err);
+                self.status = err.localized_message();
                 self.busy = false;
                 self.enrolling_finger = None;
             }
@@ -560,10 +569,9 @@ impl cosmic::Application for AppModel {
                                 async move {
                                     match list_enrolled_fingers_dbus(&conn, path, username).await {
                                         Ok(fingers) => Message::EnrolledFingers(fingers),
-                                        Err(e) => Message::OperationError(format!(
-                                            "Failed to list fingers: {}",
-                                            e
-                                        )),
+                                        Err(e) => Message::OperationError(
+                                            AppError::from(e).with_context("Failed to list fingers")
+                                        ),
                                     }
                                 },
                                 cosmic::Action::App,
@@ -586,7 +594,7 @@ impl cosmic::Application for AppModel {
                         },
                         |res| match res {
                             Ok(_) => cosmic::Action::App(Message::EnrollStatus("enroll-cancelled".to_string(), true)),
-                            Err(e) => cosmic::Action::App(Message::OperationError(e.to_string())),
+                            Err(e) => cosmic::Action::App(Message::OperationError(AppError::from(e))),
                         },
                     );
                 }
@@ -618,7 +626,7 @@ impl cosmic::Application for AppModel {
                             match delete_fingerprint_dbus(&conn, path, finger_name, user.username).await
                             {
                                 Ok(_) => Message::DeleteComplete,
-                                Err(e) => Message::OperationError(e.to_string()),
+                                Err(e) => Message::OperationError(AppError::from(e)),
                             }
                         },
                         cosmic::Action::App,
@@ -725,30 +733,6 @@ impl AppModel {
             Task::none()
         }
     }
-
-    fn map_error(err: &str) -> String {
-        if err.contains("net.reactivated.Fprint.Error.PermissionDenied") {
-            fl!("error-permission-denied")
-        } else if err.contains("net.reactivated.Fprint.Error.AlreadyInUse") {
-            fl!("error-already-in-use")
-        } else if err.contains("net.reactivated.Fprint.Error.Internal") {
-            fl!("error-internal")
-        } else if err.contains("net.reactivated.Fprint.Error.NoEnrolledPrints") {
-            fl!("error-no-enrolled-prints")
-        } else if err.contains("net.reactivated.Fprint.Error.ClaimDevice") {
-            fl!("error-claim-device")
-        } else if err.contains("net.reactivated.Fprint.Error.PrintsNotDeleted") {
-            fl!("error-prints-not-deleted")
-        } else if err.contains("net.reactivated.Fprint.Error.Timeout") {
-            fl!("error-timeout")
-        } else if err.contains("net.reactivated.Fprint.Error.DeviceNotFound")
-            || err.contains("Failed to find device")
-        {
-            fl!("error-device-not-found")
-        } else {
-            err.to_string()
-        }
-    }
 }
 
 #[cfg(test)]
@@ -756,26 +740,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_map_error() {
+    fn test_app_error_localization() {
+        // Test localized message for permission denied
         assert_eq!(
-            AppModel::map_error("net.reactivated.Fprint.Error.PermissionDenied"),
+            AppError::PermissionDenied.localized_message(),
             "Permission denied."
         );
+        // Test localized message for already in use
         assert_eq!(
-            AppModel::map_error("Error: net.reactivated.Fprint.Error.PermissionDenied: foo"),
-            "Permission denied."
-        );
-        assert_eq!(
-            AppModel::map_error("Some random error"),
-            "Some random error"
-        );
-        assert_eq!(
-            AppModel::map_error("net.reactivated.Fprint.Error.AlreadyInUse"),
+            AppError::AlreadyInUse.localized_message(),
             "Device is already in use by another application."
         );
+        // Test localized message for device not found
         assert_eq!(
-            AppModel::map_error("Failed to find device: something"),
+            AppError::DeviceNotFound.localized_message(),
             "Fingerprint device not found."
+        );
+         // Test localized message for timeout
+        assert_eq!(
+            AppError::Timeout.localized_message(),
+            "Operation timed out."
+        );
+    }
+
+    #[test]
+    fn test_app_error_unknown_context() {
+        let err = AppError::Unknown("Some error".to_string());
+        let err_with_context = err.with_context("Context");
+
+        assert_eq!(
+            err_with_context.localized_message(),
+            "Context: Some error"
+        );
+    }
+
+    #[test]
+    fn test_app_error_known_context() {
+        // Context should be ignored for known errors
+        let err = AppError::PermissionDenied;
+        let err_with_context = err.with_context("Context");
+
+        assert_eq!(
+            err_with_context.localized_message(),
+            "Permission denied."
         );
     }
 }
