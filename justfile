@@ -1,4 +1,4 @@
-name := 'cosmic-fprint'
+name := 'cosmic-ext-fprint'
 appid := 'fi.joonastuomi.CosmicFprint'
 
 rootdir := ''

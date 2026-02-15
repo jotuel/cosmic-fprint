@@ -2,7 +2,7 @@ app-id: fi.joonastuomi.CosmicFprint
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
-command: cosmic-fprint
+command: cosmic-ext-fprint
 finish-args:
   - --socket=wayland
   - --socket=fallback-x11
@@ -23,14 +23,14 @@ build-options:
     - --share=network
 
 modules:
-  - name: cosmic-fprint
+  - name: cosmic-ext-fprint
     buildsystem: simple
     build-commands:
       # Build the application
       - cargo build --release
 
       # Install the binary
-      - install -Dm0755 target/release/cosmic-fprint /app/bin/cosmic-fprint
+      - install -Dm0755 target/release/cosmic-ext-fprint /app/bin/cosmic-ext-fprint
 
       # Install the desktop file
       - install -Dm0644 resources/app.desktop /app/share/applications/fi.joonastuomi.CosmicFprint.desktop

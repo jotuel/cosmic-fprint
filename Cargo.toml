@@ -1,10 +1,10 @@
 [package]
-name = "cosmic-fprint"
+name = "cosmic-ext-fprint"
 version = "0.3.7"
 edition = "2024"
 license = "MPL-2.0"
-description = "COSMIC™ GUI for fprintd fingerprint enrolling"
-repository = "https://github.com/jotuel/cosmic-fprint"
+description = "GUI for fprintd fingerprint enrolling"
+repository = "https://github.com/jotuel/cosmic-ext-fprint"
 
 [build-dependencies]
 vergen = { version = "8", features = ["git", "gitcl"] }
