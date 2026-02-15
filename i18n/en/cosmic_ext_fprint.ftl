@@ -1,4 +1,4 @@
-app-title = Fprint Extension
+app-title = Fprint Enroll
 about = About
 view = View
 fprint = Register Fingerprint
