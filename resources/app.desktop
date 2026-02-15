@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=Cosmic Fprint
-Comment=COSMIC™ GUI for fprintd fingerprint enrolling
+Name=Fprint Extension
+Comment=GUI for fprintd fingerprint enrolling
 Type=Application
 Icon=fi.joonastuomi.CosmicFprint
-Exec=cosmic-fprint %F
+Exec=cosmic-ext-fprint %F
 Terminal=false
 StartupNotify=true
-Categories=COSMIC
-Keywords=COSMIC
+Categories=Utility;System;
+Keywords=Fingerprint;Security;
 MimeType=

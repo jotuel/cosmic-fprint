@@ -1,4 +1,4 @@
-app-title = Cosmic Fprint
+app-title = Fprint Extension
 about = About
 view = View
 fprint = Register Fingerprint
