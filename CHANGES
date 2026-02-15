@@ -9,3 +9,7 @@
   - Disable delete button if fingerprint is not enrolled
   - Performance optimization: avoid redundant string clone in signal handler
 0.3.6: Add user selection dropdown
+0.3.7:
+  - Added localization string
+  - More idiomatic Rust
+  - Improved memory reusage
