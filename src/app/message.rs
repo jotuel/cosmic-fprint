@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::app::page::ContextPage;
+use std::sync::Arc;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -24,8 +25,8 @@ pub enum Message {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserOption {
-    pub username: String,
-    pub realname: String,
+    pub username: Arc<String>,
+    pub realname: Arc<String>,
 }
 
 impl std::fmt::Display for UserOption {
