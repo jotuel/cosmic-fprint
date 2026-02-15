@@ -24,15 +24,21 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: cosmic-fprint.flatpak
-          manifest-path: flatpak/fi.joonastuomi.CosmicFprint.yml
+          manifest-path: flatpak/fi.joonastuomi.Fprint.yml
           cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Get version
+        id: get_version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "VERSION=$(awk -F '"' '/^\[package\]/ {flag=1} /^version/ && flag {print $2; exit}' Cargo.toml)" >> $GITHUB_ENV
 
       - name: Create Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: nightly
-          name: Nightly Build
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
           files: cosmic-fprint.flatpak
           draft: false
           prerelease: true

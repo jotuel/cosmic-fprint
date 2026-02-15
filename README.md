@@ -1,26 +1,24 @@
-# Cosmic Fprint
+# Fprint built for COSMIC™ DE
 
-COSMIC™ GUI for fprintd fingerprint enrolling.
+Program for GUI based fingerprint management.
 
 ## Prerequisites
 
-You're using Linux, or compatible system, with a supported fingerprint scanner. Works best with COSMIC DE, tested only with Pop!_OS.
+You're using Linux or freedesktop compatible system with a supported fingerprint scanner. Tested with COSMIC™ DE, Pop!_OS, Framework 13 laptop with a Goodix MOC Fingerprint Sensor. 
 
 ## Usage
 
-Choose which finger to register or delete from menu. Click the action you want to take. Prompts you for your password. If you don't have correct rights or incorrect password your attempt will be dismissed.
+Choose which finger to register or delete by a tab. Change user from a menu (default is current session.)</br> Click the action you want to take. Prompts you for your password. Follow instruction.</br> If you don't have correct rights or incorrect password your attempt will be dismissed.
 
-Small video registering fingerprint:
-
-[google_screen_recording_2026-01-28T11-02_01.789Z.webm](https://github.com/user-attachments/assets/f12d923b-a290-4e45-94bd-aa39f6ed6782)
+[recording-2026-02-16_00-19-25.webm](https://github.com/user-attachments/assets/5c22b844-157a-41f2-9c07-83a073bd0d6b)
 
 ## Todos
 
-- Improve feedback given to user. Currently prints what daemon returns.
-- Add a user dropdown to make it possible for admin to register for other users.
-- Get project into cosmic-utils.
+- [x] Improve feedback given to user. Currently prints what daemon returns.
+- [x] Add a user dropdown to make it possible for admin to register for other users.
+- [ ] Get project into cosmic-utils.
 - [x] Package & distribute, most likely as a flatpak, but maybe as a deb package also.
-- Sherlock the application by adding all functionality directly into cosmic-settings.
+- [ ] Sherlock the application by adding all functionality directly into cosmic-settings.
 
 
 ## Installation
@@ -46,7 +44,7 @@ If packaging for a Linux distribution, vendor dependencies locally with the `ven
 ```sh
 just vendor
 just build-vendored
-just rootdir=debian/cosmic-fprint prefix=/usr install
+just rootdir=debian/cosmic-ext-fprint prefix=/usr install
 ```
 
 It is recommended to build a source tarball with the vendored dependencies, which can typically be done by running `just vendor` on the host system before it enters the build environment.
