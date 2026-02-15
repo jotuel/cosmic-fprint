@@ -9,6 +9,9 @@ mod i18n;
 extern crate tracing;
 extern crate zbus;
 
+const WINDOW_MIN_WIDTH: f32 = 360.0;
+const WINDOW_MIN_HEIGHT: f32 = 180.0;
+
 fn main() -> cosmic::iced::Result {
     // Get the system's preferred languages.
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
@@ -19,8 +22,8 @@ fn main() -> cosmic::iced::Result {
     // Settings for configuring the application window and iced runtime.
     let settings = cosmic::app::Settings::default().size_limits(
         cosmic::iced::Limits::NONE
-            .min_width(360.0)
-            .min_height(180.0),
+            .min_width(WINDOW_MIN_WIDTH)
+            .min_height(WINDOW_MIN_HEIGHT),
     );
 
     // Starts the application's event loop with `()` as the application's flags.

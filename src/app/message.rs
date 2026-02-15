@@ -14,7 +14,7 @@ pub enum Message {
     ConnectionReady(zbus::Connection),
     DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
     OperationError(AppError),
-    EnrollStart(i32),
+    EnrollStart(Option<u32>),
     EnrollStatus(String, bool),
     EnrollStop,
     DeleteComplete,

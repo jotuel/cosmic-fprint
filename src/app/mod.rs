@@ -60,8 +60,8 @@ pub struct AppModel {
     // Finger currently being enrolled (None if not enrolling)
     enrolling_finger: Option<String>,
     // Enrollment progress
-    enroll_progress: i32,
-    enroll_total_stages: i32,
+    enroll_progress: u32,
+    enroll_total_stages: Option<u32>,
     // List of users (username, realname)
     users: Vec<UserOption>,
     // Selected user
@@ -126,13 +126,13 @@ impl cosmic::Application for AppModel {
                     }
                 })
                 .unwrap_or_default(),
-            status: "Connecting to system bus...".to_string(),
+            status: fl!("status-connecting"),
             device_path: None,
             connection: None,
             busy: true,
             enrolling_finger: None,
             enroll_progress: 0,
-            enroll_total_stages: 0,
+            enroll_total_stages: None,
             users: Vec::new(),
             selected_user: std::env::var("USER").ok().map(|u| UserOption {
                 username: u.clone(),
@@ -261,14 +261,13 @@ impl cosmic::Application for AppModel {
                     .align_x(Horizontal::Center),
             );
 
-        if self.enrolling_finger.is_some() && self.enroll_total_stages > 0 {
-            column = column.push(
-                widget::progress_bar(
-                    0.0..=(self.enroll_total_stages as f32),
-                    self.enroll_progress as f32,
-                )
-                .height(PROGRESS_BAR_HEIGHT),
-            );
+        if self.enrolling_finger.is_some() {
+            if let Some(total) = self.enroll_total_stages {
+                column = column.push(
+                    widget::progress_bar(0.0..=(total as f32), self.enroll_progress as f32)
+                        .height(PROGRESS_BAR_HEIGHT),
+                );
+            }
         }
 
         let mut row = widget::row()
@@ -369,7 +368,7 @@ impl cosmic::Application for AppModel {
         match message {
             Message::ConnectionReady(conn) => {
                 self.connection = Some(conn.clone());
-                self.status = "Searching for fingerprint reader...".to_string();
+                self.status = fl!("status-searching-device");
 
                 let conn_clone = conn.clone();
                 let find_device_task = Task::perform(
@@ -494,7 +493,7 @@ impl cosmic::Application for AppModel {
             Message::DeviceFound(path) => {
                 self.device_path = path;
                 if let (Some(path), Some(conn)) = (&self.device_path, &self.connection) {
-                    self.status = "Device found. Ready.".to_string();
+                    self.status = fl!("status-device-found");
                     self.busy = false;
 
                     if let Some(user) = &self.selected_user {
@@ -514,7 +513,7 @@ impl cosmic::Application for AppModel {
                         );
                     }
                 } else {
-                    self.status = "No fingerprint reader found.".to_string();
+                    self.status = fl!("status-no-device-found");
                     self.busy = true;
                 }
             }
@@ -619,7 +618,7 @@ impl cosmic::Application for AppModel {
                         self.selected_user.clone(),
                     )
                 {
-                    self.status = format!("Deleting fingerprint {}", page.as_finger_id());
+                    self.status = fl!("deleting");
                     self.busy = true;
                     let finger_name = page.as_finger_id().to_string();
                     return Task::perform(
@@ -641,7 +640,7 @@ impl cosmic::Application for AppModel {
                     && self.selected_user.is_some()
                 {
                     self.busy = true;
-                    self.status = "Starting enrollment...".to_string();
+                    self.status = fl!("status-starting-enrollment");
                     self.enrolling_finger = Some(page.as_finger_id().to_string());
                 }
             }
