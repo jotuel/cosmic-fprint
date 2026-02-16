@@ -400,31 +400,42 @@ impl cosmic::Application for AppModel {
                 let fetch_users_task = Task::perform(
                     async move {
                         let mut users = Vec::new();
-                        // Try to get users from AccountsService
+                        // Get users from AccountsService
                         if let Ok(accounts) = AccountsProxy::new(&conn_clone).await {
                             if let Ok(user_paths) = accounts.list_cached_users().await {
                                 let fetched_users: Vec<_> = stream::iter(user_paths)
                                     .map(|path| {
                                         let conn = conn_clone.clone();
                                         async move {
-                                            let user_proxy = UserProxy::builder(&conn)
-                                                .path(path)
-                                                .expect("path should be valid")
-                                                .build()
-                                                .await?;
-                                            let name = user_proxy.user_name().await?;
-                                            let real_name = user_proxy.real_name().await?;
-                                            Ok::<_, zbus::Error>(UserOption {
-                                                username: Arc::new(name),
-                                                realname: Arc::new(real_name),
-                                            })
+                                            let builder = match UserProxy::builder(&conn).path(&path) {
+                                                Ok(builder) => builder,
+                                                Err(e) => {
+                                                    tracing::error!(%e, "Failed to create UserProxy for path {path}");
+                                                    return Err(e);
+                                                }
+                                            };
+
+                                            if let Ok(user_proxy) = builder.build().await {
+                                                if let (Ok(name), Ok(real_name)) =
+                                                    (user_proxy.user_name().await, user_proxy.real_name().await)
+                                                {
+                                                    Ok::<_, zbus::Error>(UserOption {
+                                                        username: Arc::new(name),
+                                                        realname: Arc::new(real_name),
+                                                    })
+                                                } else {
+                                                    Err(zbus::Error::Failure("Failed to fetch user name or real name".to_string()))
+                                                }
+                                            } else {
+                                                Err(zbus::Error::Failure("Failed to fetch user name or real name".to_string()))
+                                            }
                                         }
                                     })
                                     .buffer_unordered(USER_FETCH_CONCURRENCY)
                                     .filter_map(|res| async { res.ok() })
                                     .collect()
                                     .await;
-                                users.extend(fetched_users);
+                                    users.extend(fetched_users);
                             }
                         }
 
