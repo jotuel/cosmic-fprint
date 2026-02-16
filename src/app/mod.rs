@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::accounts_dbus::{AccountsProxy, UserProxy};
+use zbus;
 use crate::config::Config;
 use crate::fl;
 use crate::fprint_dbus::DeviceProxy;
@@ -12,6 +13,7 @@ use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
+use futures_util::stream::{self, StreamExt};
 use futures_util::SinkExt;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -36,6 +38,8 @@ const STATUS_TEXT_SIZE: u16 = 16;
 const PROGRESS_BAR_HEIGHT: u16 = 10;
 const MAIN_SPACING: u16 = 20;
 const MAIN_PADDING: u16 = 20;
+
+const USER_FETCH_CONCURRENCY: usize = 10;
 
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
@@ -83,7 +87,7 @@ impl cosmic::Application for AppModel {
     type Message = Message;
 
     /// Unique identifier in RDNN (reverse domain name notation) format.
-    const APP_ID: &'static str = "fi.joonastuomi.CosmicFprint";
+    const APP_ID: &'static str = "fi.joonastuomi.Fprint";
 
     fn core(&self) -> &cosmic::Core {
         &self.core
@@ -415,10 +419,14 @@ impl cosmic::Application for AppModel {
                                             users.push(UserOption {
                                                 username: Arc::new(name),
                                                 realname: Arc::new(real_name),
-                                            });
+                                            })
                                         }
-                                    }
-                                }
+                                    })
+                                    .buffer_unordered(USER_FETCH_CONCURRENCY)
+                                    .filter_map(|res| async { res.ok() })
+                                    .collect()
+                                    .await;
+                                users.extend(fetched_users);
                             }
                         }
 
@@ -794,6 +802,15 @@ mod tests {
             err_with_context.localized_message(),
             "Permission denied."
         );
+    }
+
+    #[test]
+    fn test_menu_action_message() {
+        let action = MenuAction::About;
+        assert!(matches!(
+            action.message(),
+            Message::ToggleContextPage(ContextPage::About)
+        ));
     }
 }
 
