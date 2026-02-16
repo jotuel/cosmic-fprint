@@ -792,6 +792,15 @@ mod tests {
             "Permission denied."
         );
     }
+
+    #[test]
+    fn test_menu_action_message() {
+        let action = MenuAction::About;
+        assert!(matches!(
+            action.message(),
+            Message::ToggleContextPage(ContextPage::About)
+        ));
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
