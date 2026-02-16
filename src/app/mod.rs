@@ -400,12 +400,15 @@ impl cosmic::Application for AppModel {
                         if let Ok(accounts) = AccountsProxy::new(&conn_clone).await {
                             if let Ok(user_paths) = accounts.list_cached_users().await {
                                 for path in user_paths {
-                                    if let Ok(user_proxy) = UserProxy::builder(&conn_clone)
-                                        .path(path)
-                                        .expect("path should be valid")
-                                        .build()
-                                        .await
-                                    {
+                                    let builder = match UserProxy::builder(&conn_clone).path(path) {
+                                        Ok(b) => b,
+                                        Err(e) => {
+                                            tracing::error!("Failed to set path for user proxy: {}", e);
+                                            continue;
+                                        }
+                                    };
+
+                                    if let Ok(user_proxy) = builder.build().await {
                                         if let (Ok(name), Ok(real_name)) =
                                             (user_proxy.user_name().await, user_proxy.real_name().await)
                                         {
