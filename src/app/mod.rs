@@ -201,97 +201,22 @@ impl cosmic::Application for AppModel {
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<'_, Self::Message> {
-        let buttons_enabled =
-            !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
+        let mut column = widget::column().push(self.view_header());
 
-        let current_page = self.nav.data::<Page>(self.nav.active());
-        let current_finger = current_page.map(|p| p.as_finger_id());
-        let is_enrolled = current_finger
-            .map(|f| self.enrolled_fingers.iter().any(|ef| ef == f))
-            .unwrap_or(false);
-
-        let register_btn = widget::button::text(fl!("register"));
-        let delete_btn = widget::button::text(fl!("delete"));
-
-        let register_btn = if buttons_enabled {
-            register_btn.on_press(Message::Register)
-        } else {
-            register_btn
-        };
-
-        let delete_btn = if buttons_enabled && is_enrolled {
-            delete_btn.on_press(Message::Delete)
-        } else {
-            delete_btn
-        };
-
-        let mut cancel_btn = widget::button::text(fl!("cancel"));
-        if self.enrolling_finger.is_some() {
-            cancel_btn = cancel_btn.on_press(Message::EnrollStop);
+        if let Some(picker) = self.view_user_picker() {
+            column = column.push(picker);
         }
 
-        let mut column = widget::column().push(
-            text::title1(fl!("fprint"))
-                .apply(widget::container)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .align_x(Horizontal::Center)
-                .align_y(Vertical::Center),
-        );
+        column = column
+            .push(self.view_icon())
+            .push(self.view_status());
 
-        if !self.users.is_empty() {
-            column = column.push(
-                pick_list(
-                    self.users.as_slice(),
-                    self.selected_user.clone(),
-                    Message::UserSelected,
-                )
-                .width(Length::Fixed(200.0))
-                .apply(widget::container)
-                .width(Length::Fill)
-                .align_x(Horizontal::Center),
-            );
-        }
-
-        column = column.push(
-                widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
-                    .width(Length::Fill)
-                    .height(Length::Fill),
-            )
-            .push(
-                widget::text(&self.status)
-                    .size(STATUS_TEXT_SIZE)
-                    .apply(widget::container)
-                    .width(Length::Fill)
-                    .align_x(Horizontal::Center),
-            );
-
-        if self.enrolling_finger.is_some() {
-            if let Some(total) = self.enroll_total_stages {
-                column = column.push(
-                    widget::progress_bar(0.0..=(total as f32), self.enroll_progress as f32)
-                        .height(PROGRESS_BAR_HEIGHT),
-                );
-            }
-        }
-
-        let mut row = widget::row()
-            .push(register_btn)
-            .push(delete_btn);
-
-        if self.enrolling_finger.is_some() {
-            row = row.push(cancel_btn);
+        if let Some(progress) = self.view_progress() {
+            column = column.push(progress);
         }
 
         column
-            .push(
-                row.apply(widget::container)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .align_x(Horizontal::Center)
-                    .align_y(Vertical::Center)
-                    .padding(MAIN_PADDING),
-            )
+            .push(self.view_controls())
             .align_x(Horizontal::Center)
             .spacing(MAIN_SPACING)
             .padding(MAIN_PADDING)
@@ -440,13 +365,11 @@ impl cosmic::Application for AppModel {
                         }
 
                         // Fallback to current user if list is empty
-                        if users.is_empty() {
-                            if let Ok(user) = std::env::var("USER") {
-                                users.push(UserOption {
-                                    username: Arc::new(user.clone()),
-                                    realname: Arc::new(String::new()),
-                                });
-                            }
+                        if users.is_empty() && let Ok(user) = std::env::var("USER") {
+                            users.push(UserOption {
+                                username: Arc::new(user.clone()),
+                                realname: Arc::new(String::new()),
+                            });
                         }
 
                         Message::UsersFound(users)
@@ -584,23 +507,27 @@ impl cosmic::Application for AppModel {
                     self.busy = false;
                     self.enrolling_finger = None;
 
-                    if status == "enroll-completed" {
-                        if let (Some(path), Some(conn), Some(user)) = (&self.device_path, &self.connection, &self.selected_user) {
-                            let path = (**path).clone();
-                            let conn = conn.clone();
-                            let username = (*user.username).clone();
-                            return Task::perform(
-                                async move {
-                                    match list_enrolled_fingers_dbus(&conn, path, username).await {
-                                        Ok(fingers) => Message::EnrolledFingers(fingers),
-                                        Err(e) => Message::OperationError(
-                                            AppError::from(e).with_context("Failed to list fingers")
-                                        ),
-                                    }
-                                },
-                                cosmic::Action::App,
-                            );
-                        }
+                    if status == "enroll-completed"
+                        && let (Some(path), Some(conn), Some(user)) = (
+                            &self.device_path,
+                            &self.connection,
+                            &self.selected_user,
+                        )
+                    {
+                        let path = (**path).clone();
+                        let conn = conn.clone();
+                        let username = (*user.username).clone();
+                        return Task::perform(
+                            async move {
+                                match list_enrolled_fingers_dbus(&conn, path, username).await {
+                                    Ok(fingers) => Message::EnrolledFingers(fingers),
+                                    Err(e) => Message::OperationError(
+                                        AppError::from(e).with_context("Failed to list fingers"),
+                                    ),
+                                }
+                            },
+                            cosmic::Action::App,
+                        );
                     }
                 }
             }
@@ -759,6 +686,108 @@ impl AppModel {
         } else {
             Task::none()
         }
+    }
+
+    fn view_header(&self) -> Element<'_, Message> {
+        text::title1(fl!("fprint"))
+            .apply(widget::container)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
+            .into()
+    }
+
+    fn view_user_picker(&self) -> Option<Element<'_, Message>> {
+        if self.users.is_empty() {
+            return None;
+        }
+
+        Some(
+            pick_list(
+                self.users.as_slice(),
+                self.selected_user.clone(),
+                Message::UserSelected,
+            )
+            .width(Length::Fixed(200.0))
+            .apply(widget::container)
+            .width(Length::Fill)
+            .align_x(Horizontal::Center)
+            .into(),
+        )
+    }
+
+    fn view_icon(&self) -> Element<'_, Message> {
+        widget::svg(widget::svg::Handle::from_memory(FPRINT_ICON))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
+
+    fn view_status(&self) -> Element<'_, Message> {
+        widget::text(&self.status)
+            .size(STATUS_TEXT_SIZE)
+            .apply(widget::container)
+            .width(Length::Fill)
+            .align_x(Horizontal::Center)
+            .into()
+    }
+
+    fn view_progress(&self) -> Option<Element<'_, Message>> {
+        self.enrolling_finger.as_ref()?;
+
+        self.enroll_total_stages.map(|total| {
+            widget::progress_bar(0.0..=(total as f32), self.enroll_progress as f32)
+                .height(PROGRESS_BAR_HEIGHT)
+                .into()
+        })
+    }
+
+    fn view_controls(&self) -> Element<'_, Message> {
+        let buttons_enabled =
+            !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
+
+        let current_page = self.nav.data::<Page>(self.nav.active());
+        let current_finger = current_page.map(|p| p.as_finger_id());
+        let is_enrolled = current_finger
+            .map(|f| self.enrolled_fingers.iter().any(|ef| ef == f))
+            .unwrap_or(false);
+
+        let register_btn = widget::button::text(fl!("register"));
+        let delete_btn = widget::button::text(fl!("delete"));
+
+        let register_btn = if buttons_enabled {
+            register_btn.on_press(Message::Register)
+        } else {
+            register_btn
+        };
+
+        let delete_btn = if buttons_enabled && is_enrolled {
+            delete_btn.on_press(Message::Delete)
+        } else {
+            delete_btn
+        };
+
+        let mut cancel_btn = widget::button::text(fl!("cancel"));
+        if self.enrolling_finger.is_some() {
+            cancel_btn = cancel_btn.on_press(Message::EnrollStop);
+        }
+
+        let mut row = widget::row()
+            .push(register_btn)
+            .push(delete_btn);
+
+        if self.enrolling_finger.is_some() {
+            row = row.push(cancel_btn);
+        }
+
+        row.apply(widget::container)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
+            .padding(MAIN_PADDING)
+            .into()
     }
 }
 
