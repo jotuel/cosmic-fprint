@@ -7,7 +7,7 @@ use futures_util::{SinkExt, StreamExt};
 pub async fn find_device(
     connection: &zbus::Connection,
 ) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
-    let manager = ManagerProxy::new(&connection).await?;
+    let manager = ManagerProxy::new(connection).await?;
     let device = manager.get_default_device().await?;
     Ok(device)
 }
