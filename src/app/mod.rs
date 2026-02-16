@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::accounts_dbus::{AccountsProxy, UserProxy};
+use zbus;
 use crate::config::Config;
 use crate::fl;
 use crate::fprint_dbus::DeviceProxy;
@@ -12,6 +13,7 @@ use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
 use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
+use futures_util::stream::{self, StreamExt};
 use futures_util::SinkExt;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -36,6 +38,8 @@ const STATUS_TEXT_SIZE: u16 = 16;
 const PROGRESS_BAR_HEIGHT: u16 = 10;
 const MAIN_SPACING: u16 = 20;
 const MAIN_PADDING: u16 = 20;
+
+const USER_FETCH_CONCURRENCY: usize = 10;
 
 /// The application model stores app-specific state used to describe its interface and
 /// drive its logic.
@@ -83,7 +87,7 @@ impl cosmic::Application for AppModel {
     type Message = Message;
 
     /// Unique identifier in RDNN (reverse domain name notation) format.
-    const APP_ID: &'static str = "fi.joonastuomi.CosmicFprint";
+    const APP_ID: &'static str = "fi.joonastuomi.Fprint";
 
     fn core(&self) -> &cosmic::Core {
         &self.core
@@ -321,24 +325,42 @@ impl cosmic::Application for AppModel {
                 let fetch_users_task = Task::perform(
                     async move {
                         let mut users = Vec::new();
-                        // Try to get users from AccountsService
-                        if let Ok(accounts) = AccountsProxy::new(&conn_clone).await
-                            && let Ok(user_paths) = accounts.list_cached_users().await
-                        {
-                            for path in user_paths {
-                                if let Ok(user_proxy) = UserProxy::builder(&conn_clone)
-                                    .path(path)
-                                    .expect("path should be valid")
-                                    .build()
-                                    .await
-                                    && let (Ok(name), Ok(real_name)) =
-                                        (user_proxy.user_name().await, user_proxy.real_name().await)
-                                {
-                                    users.push(UserOption {
-                                        username: Arc::new(name),
-                                        realname: Arc::new(real_name),
-                                    });
-                                }
+                        // Get users from AccountsService
+                        if let Ok(accounts) = AccountsProxy::new(&conn_clone).await {
+                            if let Ok(user_paths) = accounts.list_cached_users().await {
+                                let fetched_users: Vec<_> = stream::iter(user_paths)
+                                    .map(|path| {
+                                        let conn = conn_clone.clone();
+                                        async move {
+                                            let builder = match UserProxy::builder(&conn).path(&path) {
+                                                Ok(builder) => builder,
+                                                Err(e) => {
+                                                    tracing::error!(%e, "Failed to create UserProxy for path {path}");
+                                                    return Err(e);
+                                                }
+                                            };
+
+                                            if let Ok(user_proxy) = builder.build().await {
+                                                if let (Ok(name), Ok(real_name)) =
+                                                    (user_proxy.user_name().await, user_proxy.real_name().await)
+                                                {
+                                                    Ok::<_, zbus::Error>(UserOption {
+                                                        username: Arc::new(name),
+                                                        realname: Arc::new(real_name),
+                                                    })
+                                                } else {
+                                                    Err(zbus::Error::Failure("Failed to fetch user name or real name".to_string()))
+                                                }
+                                            } else {
+                                                Err(zbus::Error::Failure("Failed to fetch user name or real name".to_string()))
+                                            }
+                                        }
+                                    })
+                                    .buffer_unordered(USER_FETCH_CONCURRENCY)
+                                    .filter_map(|res| async { res.ok() })
+                                    .collect()
+                                    .await;
+                                    users.extend(fetched_users);
                             }
                         }
 
@@ -818,6 +840,15 @@ mod tests {
             err_with_context.localized_message(),
             "Permission denied."
         );
+    }
+
+    #[test]
+    fn test_menu_action_message() {
+        let action = MenuAction::About;
+        assert!(matches!(
+            action.message(),
+            Message::ToggleContextPage(ContextPage::About)
+        ));
     }
 }
 
