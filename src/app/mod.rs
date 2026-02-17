@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::accounts_dbus::{AccountsProxy, UserProxy};
-use zbus;
 use crate::config::Config;
 use crate::fl;
 use crate::fprint_dbus::DeviceProxy;
@@ -470,65 +469,63 @@ impl AppModel {
         );
 
         let conn_clone = conn.clone();
+        // Get users from AccountsService
         let fetch_users_task = Task::perform(
             async move {
                 let mut users = Vec::new();
-                // Get users from AccountsService
-                if let Ok(accounts) = AccountsProxy::new(&conn_clone).await {
-                    if let Ok(user_paths) = accounts.list_cached_users().await {
-                        let fetched_users: Vec<_> = stream::iter(user_paths)
-                            .map(|path| {
-                                let conn = conn_clone.clone();
-                                async move {
-                                    let builder = match UserProxy::builder(&conn).path(&path) {
-                                        Ok(builder) => builder,
-                                        Err(e) => {
-                                            tracing::error!(
-                                                %e,
-                                                "Failed to create UserProxy for path {path}"
-                                            );
-                                            return Err(e);
-                                        }
-                                    };
+                if let Ok(accounts) = AccountsProxy::new(&conn_clone).await
+                && let Ok(user_paths) = accounts.list_cached_users().await {
+                    let fetched_users: Vec<_> = stream::iter(user_paths)
+                        .map(|path| {
+                            let conn = conn_clone.clone();
+                            async move {
+                                let builder = match UserProxy::builder(&conn).path(&path) {
+                                    Ok(builder) => builder,
+                                    Err(e) => {
+                                        tracing::error!(
+                                            %e,
+                                            "Failed to create UserProxy for path {path}"
+                                        );
+                                        return Err(e);
+                                    }
+                                };
 
-                                    if let Ok(user_proxy) = builder.build().await {
-                                        if let (Ok(name), Ok(real_name)) =
-                                            (user_proxy.user_name().await, user_proxy.real_name().await)
-                                        {
-                                            Ok::<_, zbus::Error>(UserOption {
-                                                username: Arc::new(name),
-                                                realname: Arc::new(real_name),
-                                            })
-                                        } else {
-                                            Err(zbus::Error::Failure(
-                                                "Failed to fetch user name or real name".to_string(),
-                                            ))
-                                        }
+                                if let Ok(user_proxy) = builder.build().await {
+                                    if let (Ok(name), Ok(real_name)) =
+                                        (user_proxy.user_name().await, user_proxy.real_name().await)
+                                    {
+                                        Ok::<_, zbus::Error>(UserOption {
+                                            username: Arc::new(name),
+                                            realname: Arc::new(real_name),
+                                        })
                                     } else {
                                         Err(zbus::Error::Failure(
                                             "Failed to fetch user name or real name".to_string(),
                                         ))
                                     }
+                                } else {
+                                    Err(zbus::Error::Failure(
+                                        "Failed to fetch user name or real name".to_string(),
+                                    ))
                                 }
-                            })
-                            .buffered(USER_FETCH_CONCURRENCY)
-                            .filter_map(|res| async { res.ok() })
-                            .collect()
-                            .await;
-                        users.extend(fetched_users);
-                    }
+                            }
+                        })
+                        .buffered(USER_FETCH_CONCURRENCY)
+                        .filter_map(|res| async { res.ok() })
+                        .collect()
+                        .await;
+                    users.extend(fetched_users);
                 }
+
+
 
                 // Fallback to current user if list is empty
-                if users.is_empty() {
-                    if let Ok(user) = std::env::var("USER") {
-                        users.push(UserOption {
-                            username: Arc::new(user.clone()),
-                            realname: Arc::new(String::new()),
-                        });
-                    }
+                if users.is_empty() && let Ok(user) = std::env::var("USER") {
+                    users.push(UserOption {
+                        username: Arc::new(user.clone()),
+                        realname: Arc::new(String::new()),
+                    });
                 }
-
                 Message::UsersFound(users)
             },
             cosmic::Action::App,
