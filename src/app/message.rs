@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 use crate::config::Config;
 use crate::app::page::ContextPage;
 use std::sync::Arc;

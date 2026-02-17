@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+
 use crate::fprint_dbus::{DeviceProxy, ManagerProxy};
 use crate::app::message::Message;
 use crate::app::error::AppError;
