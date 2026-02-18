@@ -12,6 +12,7 @@ pub enum AppError {
     PrintsNotDeleted,
     Timeout,
     DeviceNotFound,
+    ConnectDbus(String),
     Unknown(String),
 }
 
@@ -26,6 +27,7 @@ impl AppError {
             AppError::PrintsNotDeleted => fl!("error-prints-not-deleted"),
             AppError::Timeout => fl!("error-timeout"),
             AppError::DeviceNotFound => fl!("error-device-not-found"),
+            AppError::ConnectDbus(msg) => fl!("error-connect-dbus", err = msg),
             AppError::Unknown(msg) => msg.clone(),
         }
     }

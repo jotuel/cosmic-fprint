@@ -153,7 +153,7 @@ impl cosmic::Application for AppModel {
             async move {
                 match zbus::Connection::system().await {
                     Ok(conn) => Message::ConnectionReady(conn),
-                    Err(e) => Message::OperationError(AppError::Unknown(format!("Failed to connect to DBus: {}", e))),
+                    Err(e) => Message::OperationError(AppError::ConnectDbus(e.to_string())),
                 }
             },
             cosmic::Action::App,
@@ -822,6 +822,11 @@ mod tests {
         assert_eq!(
             AppError::Timeout.localized_message(),
             "Operation timed out."
+        );
+        // Test localized message for DBus connection error
+        assert_eq!(
+            AppError::ConnectDbus("Connection error".to_string()).localized_message(),
+            "Failed to connect to DBus: \u{2068}Connection error\u{2069}"
         );
     }
 
