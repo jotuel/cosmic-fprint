@@ -9,8 +9,8 @@ mod i18n;
 extern crate tracing;
 extern crate zbus;
 
-const WINDOW_MIN_WIDTH: f32 = 360.0;
-const WINDOW_MIN_HEIGHT: f32 = 180.0;
+const WINDOW_MIN_WIDTH: f32 = 400.0;
+const WINDOW_MIN_HEIGHT: f32 = 380.0;
 
 fn main() -> cosmic::iced::Result {
     // Get the system's preferred languages.
