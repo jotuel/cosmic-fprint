@@ -8,18 +8,20 @@ use futures_util::{SinkExt, StreamExt};
 
 pub async fn find_device(
     connection: &zbus::Connection,
-) -> zbus::Result<zbus::zvariant::OwnedObjectPath> {
+) -> zbus::Result<(zbus::zvariant::OwnedObjectPath, DeviceProxy<'static>)> {
     let manager = ManagerProxy::new(connection).await?;
-    let device = manager.get_default_device().await?;
-    Ok(device)
+    let path = manager.get_default_device().await?;
+    let device = DeviceProxy::builder(connection)
+        .path(path.clone())?
+        .build()
+        .await?;
+    Ok((path, device))
 }
 
 pub async fn list_enrolled_fingers_dbus(
-    connection: &zbus::Connection,
-    path: zbus::zvariant::OwnedObjectPath,
+    device: &DeviceProxy<'static>,
     username: String,
 ) -> zbus::Result<Vec<String>> {
-    let device = DeviceProxy::builder(connection).path(path)?.build().await?;
     device.list_enrolled_fingers(&username).await
 }
 
