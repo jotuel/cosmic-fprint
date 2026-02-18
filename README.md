@@ -1,6 +1,6 @@
-# Fprint built for COSMIC™ DE
+# Fprint for COSMIC™ DE
 
-Program for GUI based fingerprint management.
+GUI for fingerprint management.
 
 ## Prerequisites
 
