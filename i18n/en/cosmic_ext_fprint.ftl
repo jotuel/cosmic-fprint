@@ -10,7 +10,6 @@ deleting = Deleting fingerprint...
 deleted = Deleted fingerprint.
 cancel = Cancel
 
-
 page-right-thumb = Right Thumb
 page-right-index-finger = Right Index Finger
 page-right-middle-finger = Right Middle Finger

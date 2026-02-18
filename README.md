@@ -54,7 +54,7 @@ It is recommended to build a source tarball with the vendored dependencies, whic
 A Flatpak manifest is included in the `flatpak` directory. To build and install the Flatpak:
 
 ```sh
-flatpak-builder --user --install --force-clean build flatpak/fi.joonastuomi.CosmicFprint.yml
+flatpak-builder --user --install --force-clean build flatpak/fi.joonastuomi.Fprint.yml
 ```
 
 Note: The included manifest uses network access during build to fetch dependencies. For strict offline builds, you should generate a `cargo-sources.json` file using `flatpak-builder-tools`.
