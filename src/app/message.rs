@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::app::page::ContextPage;
 use std::sync::Arc;
 use crate::app::error::AppError;
+use crate::fprint_dbus::DeviceProxy;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -15,7 +16,7 @@ pub enum Message {
     Delete,
     Register,
     ConnectionReady(zbus::Connection),
-    DeviceFound(Option<zbus::zvariant::OwnedObjectPath>),
+    DeviceFound(Option<(zbus::zvariant::OwnedObjectPath, DeviceProxy<'static>)>),
     OperationError(AppError),
     EnrollStart(Option<u32>),
     EnrollStatus(String, bool),

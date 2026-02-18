@@ -57,6 +57,8 @@ pub struct AppModel {
     status: String,
     // Currently selected device path
     device_path: Option<Arc<zbus::zvariant::OwnedObjectPath>>,
+    // Reused device proxy
+    device_proxy: Option<DeviceProxy<'static>>,
     // Shared DBus connection
     connection: Option<zbus::Connection>,
     // Whether an operation is in progress
@@ -132,6 +134,7 @@ impl cosmic::Application for AppModel {
                 .unwrap_or_default(),
             status: fl!("status-connecting"),
             device_path: None,
+            device_proxy: None,
             connection: None,
             busy: true,
             enrolling_finger: None,
@@ -425,15 +428,14 @@ impl AppModel {
     }
 
     fn list_fingers_task(&self) -> Task<cosmic::Action<Message>> {
-        if let (Some(path), Some(conn), Some(user)) =
-            (&self.device_path, &self.connection, &self.selected_user)
+        if let (Some(proxy), Some(user)) =
+            (&self.device_proxy, &self.selected_user)
         {
-            let path = (**path).clone();
-            let conn = conn.clone();
+            let proxy = proxy.clone();
             let username = (*user.username).clone();
             return Task::perform(
                 async move {
-                    match list_enrolled_fingers_dbus(&conn, path, username).await {
+                    match list_enrolled_fingers_dbus(&proxy, username).await {
                         Ok(fingers) => Message::EnrolledFingers(fingers),
                         Err(e) => Message::OperationError(
                             AppError::from(e).with_context("Failed to list fingers"),
@@ -454,7 +456,7 @@ impl AppModel {
         let find_device_task = Task::perform(
             async move {
                 match find_device(&conn_clone).await {
-                    Ok(path) => Message::DeviceFound(Some(path)),
+                    Ok((path, proxy)) => Message::DeviceFound(Some((path, proxy))),
                     Err(e) => {
                         let error = AppError::from(e);
                         if matches!(error, AppError::Unknown(_)) {
@@ -565,10 +567,11 @@ impl AppModel {
 
     fn on_device_found(
         &mut self,
-        path: Option<zbus::zvariant::OwnedObjectPath>,
+        device_info: Option<(zbus::zvariant::OwnedObjectPath, DeviceProxy<'static>)>,
     ) -> Task<cosmic::Action<Message>> {
-        self.device_path = path.map(Arc::new);
-        if self.device_path.is_some() && self.connection.is_some() {
+        if let Some((path, proxy)) = device_info {
+            self.device_path = Some(Arc::new(path));
+            self.device_proxy = Some(proxy);
             self.status = fl!("status-device-found");
             self.busy = false;
 
@@ -578,6 +581,8 @@ impl AppModel {
                 Task::none()
             }
         } else {
+            self.device_path = None;
+            self.device_proxy = None;
             self.status = fl!("status-no-device-found");
             self.busy = true;
             Task::none()
