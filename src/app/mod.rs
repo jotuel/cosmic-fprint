@@ -14,6 +14,7 @@ use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::stream::{self, StreamExt};
 use futures_util::SinkExt;
+use nix::unistd::{Uid, User};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -138,10 +139,13 @@ impl cosmic::Application for AppModel {
             enroll_progress: 0,
             enroll_total_stages: None,
             users: Vec::new(),
-            selected_user: std::env::var("USER").ok().map(|u| UserOption {
-                username: Arc::new(u.clone()),
-                realname: Arc::new(String::new()),
-            }),
+            selected_user: User::from_uid(Uid::current())
+                .ok()
+                .flatten()
+                .map(|u| UserOption {
+                    username: Arc::new(u.name),
+                    realname: Arc::new(u.gecos.to_string_lossy().into_owned()),
+                }),
             enrolled_fingers: Vec::new(),
         };
 
@@ -520,11 +524,13 @@ impl AppModel {
 
 
                 // Fallback to current user if list is empty
-                if users.is_empty() && let Ok(user) = std::env::var("USER") {
-                    users.push(UserOption {
-                        username: Arc::new(user.clone()),
-                        realname: Arc::new(String::new()),
-                    });
+                if users.is_empty() {
+                    if let Ok(Some(user)) = User::from_uid(Uid::current()) {
+                        users.push(UserOption {
+                            username: Arc::new(user.name),
+                            realname: Arc::new(user.gecos.to_string_lossy().into_owned()),
+                        });
+                    }
                 }
                 Message::UsersFound(users)
             },
