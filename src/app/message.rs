@@ -42,3 +42,54 @@ impl std::fmt::Display for UserOption {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_user_option_display_with_realname() {
+        let user_option = UserOption {
+            username: Arc::new("jdoe".to_string()),
+            realname: Arc::new("John Doe".to_string()),
+        };
+        assert_eq!(user_option.to_string(), "John Doe (jdoe)");
+    }
+
+    #[test]
+    fn test_user_option_display_without_realname() {
+        let user_option = UserOption {
+            username: Arc::new("jdoe".to_string()),
+            realname: Arc::new("".to_string()),
+        };
+        assert_eq!(user_option.to_string(), "jdoe");
+    }
+
+    #[test]
+    fn test_user_option_display_with_whitespace_realname() {
+        let user_option = UserOption {
+            username: Arc::new("jdoe".to_string()),
+            realname: Arc::new("   ".to_string()),
+        };
+        assert_eq!(user_option.to_string(), "    (jdoe)");
+    }
+
+    #[test]
+    fn test_user_option_display_empty_username() {
+        let user_option = UserOption {
+            username: Arc::new("".to_string()),
+            realname: Arc::new("John Doe".to_string()),
+        };
+        assert_eq!(user_option.to_string(), "John Doe ()");
+    }
+
+    #[test]
+    fn test_user_option_display_both_empty() {
+        let user_option = UserOption {
+            username: Arc::new("".to_string()),
+            realname: Arc::new("".to_string()),
+        };
+        assert_eq!(user_option.to_string(), "");
+    }
+}
