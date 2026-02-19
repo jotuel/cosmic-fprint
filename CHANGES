@@ -23,3 +23,6 @@
   - Fallback to finding user with libc instead of enviroment variable
   - Swedish translation thanks to @bittin
   - Finnish translation
+0.3.11:
+  - Implement a confirmation dialog for "Clear Device" operation
+  - Fix missing bulk deletion logic for all fingerprints of a user
