@@ -26,7 +26,8 @@ pub mod error;
 use page::{ContextPage, Page};
 use message::{Message, UserOption};
 use fprint::{
-    delete_fingerprint_dbus, enroll_fingerprint_process, find_device, list_enrolled_fingers_dbus,
+    delete_fingerprint_dbus, delete_fingers, enroll_fingerprint_process, find_device,
+    list_enrolled_fingers_dbus,
 };
 use error::AppError;
 
@@ -339,13 +340,13 @@ impl cosmic::Application for AppModel {
             Message::DeleteComplete => {
                 self.status = fl!("deleted");
                 self.busy = false;
-                self.enrolled_fingers.retain(|f| {
-                    f != self
-                        .nav
-                        .data::<Page>(self.nav.active())
-                        .map(|p| p.as_finger_id())
-                        .unwrap_or_default()
-                });
+                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
+                    if let Some(finger_id) = page.as_finger_id() {
+                        self.enrolled_fingers.retain(|f| f != finger_id);
+                    } else {
+                        self.enrolled_fingers.clear();
+                    }
+                }
                 Task::none()
             }
 
@@ -660,29 +661,43 @@ impl AppModel {
         {
             self.status = fl!("deleting");
             self.busy = true;
-            let finger_name = page.as_finger_id().to_string();
             let path = (*path).clone();
             let username = (*user.username).clone();
-            return Task::perform(
-                async move {
-                    match delete_fingerprint_dbus(&conn, path, finger_name, username).await {
-                        Ok(_) => Message::DeleteComplete,
-                        Err(e) => Message::OperationError(AppError::from(e)),
-                    }
-                },
-                cosmic::Action::App,
-            );
+
+            if let Some(finger_name) = page.as_finger_id() {
+                let finger_name = finger_name.to_string();
+                return Task::perform(
+                    async move {
+                        match delete_fingerprint_dbus(&conn, path, finger_name, username).await {
+                            Ok(_) => Message::DeleteComplete,
+                            Err(e) => Message::OperationError(AppError::from(e)),
+                        }
+                    },
+                    cosmic::Action::App,
+                );
+            } else {
+                return Task::perform(
+                    async move {
+                        match delete_fingers(&conn, path, username).await {
+                            Ok(_) => Message::DeleteComplete,
+                            Err(e) => Message::OperationError(AppError::from(e)),
+                        }
+                    },
+                    cosmic::Action::App,
+                );
+            }
         }
         Task::none()
     }
 
     fn on_register(&mut self) -> Task<cosmic::Action<Message>> {
         if let Some(page) = self.nav.data::<Page>(self.nav.active())
+            && let Some(finger_id) = page.as_finger_id()
             && self.device_path.is_some()
             && self.selected_user.is_some()
         {
             self.busy = true;
-            self.enrolling_finger = Some(Arc::new(page.as_finger_id().to_string()));
+            self.enrolling_finger = Some(Arc::new(finger_id.to_string()));
             self.status = fl!("status-starting-enrollment");
         }
         Task::none()
@@ -764,15 +779,17 @@ impl AppModel {
             !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
 
         let current_page = self.nav.data::<Page>(self.nav.active());
-        let current_finger = current_page.map(|p| p.as_finger_id());
-        let is_enrolled = current_finger
-            .map(|f| self.enrolled_fingers.iter().any(|ef| ef == f))
-            .unwrap_or(false);
+        let current_finger = current_page.and_then(|p| p.as_finger_id());
+        let is_enrolled = if let Some(f) = current_finger {
+            self.enrolled_fingers.iter().any(|ef| ef == f)
+        } else {
+            !self.enrolled_fingers.is_empty()
+        };
 
         let register_btn = widget::button::text(fl!("register"));
         let delete_btn = widget::button::text(fl!("delete"));
 
-        let register_btn = if buttons_enabled {
+        let register_btn = if buttons_enabled && current_finger.is_some() {
             register_btn.on_press(Message::Register)
         } else {
             register_btn
