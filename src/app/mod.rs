@@ -389,6 +389,10 @@ impl cosmic::Application for AppModel {
 
     /// Called when a nav item is selected.
     fn on_nav_select(&mut self, id: nav_bar::Id) -> Task<cosmic::Action<Self::Message>> {
+        if self.busy {
+            return Task::none();
+        }
+
         // Activate the page in the model.
         self.nav.activate(id);
 
@@ -566,6 +570,10 @@ impl AppModel {
     }
 
     fn on_user_selected(&mut self, user: UserOption) -> Task<cosmic::Action<Message>> {
+        if self.busy {
+            return Task::none();
+        }
+
         self.selected_user = Some(user.clone());
         self.enrolled_fingers.clear();
         self.list_fingers_task()

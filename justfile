@@ -1,5 +1,5 @@
 name := 'cosmic-ext-fprint'
-appid := 'fi.joonastuomi.CosmicFprint'
+appid := 'fi.joonastuomi.Fprint'
 
 rootdir := ''
 prefix := '/usr'
@@ -61,8 +61,8 @@ run *args:
 # Installs files
 install:
     install -Dm0755 {{bin-src}} {{bin-dst}}
-    install -Dm0644 resources/app.desktop {{desktop-dst}}
-    install -Dm0644 resources/app.metainfo.xml {{appdata-dst}}
+    install -Dm0644 {{desktop-src}} {{desktop-dst}}
+    install -Dm0644 {{appdata-src}} {{appdata-dst}}
     install -Dm0644 {{icon-svg-src}} {{icon-svg-dst}}
 
 # Uninstalls installed files
