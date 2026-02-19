@@ -45,15 +45,10 @@ pub async fn delete_fingers(
     username: String,
 ) -> zbus::Result<()> {
     let device = DeviceProxy::builder(connection).path(path)?.build().await?;
+
     device.claim(&username).await?;
-
-    let fingers = device.list_enrolled_fingers(&username).await?;
-    for finger in fingers {
-        device.delete_enrolled_finger(&finger).await?;
-    }
-
-    device.release().await?;
-    Ok(())
+    let _ = device.delete_enrolled_fingers2().await;
+    device.release().await
 }
 
 pub async fn clear_all_fingers_dbus(
