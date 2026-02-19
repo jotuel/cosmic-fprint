@@ -33,10 +33,10 @@ modules:
       - install -Dm0755 target/release/cosmic-ext-fprint /app/bin/cosmic-ext-fprint
 
       # Install the desktop file
-      - install -Dm0644 resources/app.desktop /app/share/applications/fi.joonastuomi.Fprint.desktop
+      - install -Dm0644 resources/fi.joonastuomi.Fprint.desktop /app/share/applications/fi.joonastuomi.Fprint.desktop
 
       # Install the AppStream metadata
-      - install -Dm0644 resources/app.metainfo.xml /app/share/appdata/fi.joonastuomi.Fprint.metainfo.xml
+      - install -Dm0644 resources/fi.joonastuomi.Fprint.metainfo.xml /app/share/appdata/fi.joonastuomi.Fprint.metainfo.xml
 
       # Install the icon
       - install -Dm0644 resources/icons/hicolor/scalable/apps/icon.svg /app/share/icons/hicolor/scalable/apps/fi.joonastuomi.Fprint.svg
