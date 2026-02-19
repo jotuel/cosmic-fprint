@@ -1,0 +1,52 @@
+app-title = Fprint registrerare
+about = Om
+view = Visa
+fprint = Registrera fingeravtryck
+welcome = Registrera och/eller radera fingeravtryck
+git-description = Git commit {$hash} på {$date}
+register = Registrera
+delete = Radera
+deleting = Raderar fingeravtryck...
+deleted = Raderat fingeravtryck.
+cancel = Avbryt
+
+page-right-thumb = Höger tumme
+page-right-index-finger = Höger pekfinger
+page-right-middle-finger = Höger långfinger
+page-right-ring-finger = Höger ringfinger
+page-right-little-finger = Höger lillfinger
+page-left-thumb = Vänster tumme
+page-left-index-finger = Vänster pekfinger
+page-left-middle-finger = Vänster långfinger
+page-left-ring-finger = Vänster ringfinger
+page-left-little-finger = Vänster lillfinger
+
+status-connecting = Ansluter till system bus...
+status-searching-device = Söker efter fingeravtrycksläsare...
+status-device-found = Enhet hittades. Redo.
+status-no-device-found = Ingen fingeravtrycksläsare hittades.
+status-starting-enrollment = Startar registrering...
+
+enroll-starting = PPlacera fingret på läsaren för att börja.
+enroll-stage-passed = Skanningen lyckades. Fortsätt.
+enroll-retry-scan = Kunde inte avläsa fingeravtryck. Vänligen försök igen.
+enroll-swipe-too-short = Svepningen var för kort. Svep längs sensorns hela längd.
+enroll-finger-not-centered = Fingret är inte centrerat. Placera fingret mitt på sensorn.
+enroll-remove-and-retry = Vänligen ta bort fingret och försök igen.
+enroll-unknown-error = Okänt fel uppstod.
+enroll-completed = Fingeravtryck inskrivet.
+enroll-failed = Registreringen misslyckades.
+enroll-disconnected = Enhet är frånkopplad.
+enroll-data-full = Fingeravtryckslagringen är full. Radera några fingeravtryck.
+enroll-too-fast = Svepningen gick för snabbt. Svep långsammare.
+enroll-duplicate = Detta finger är redan registrerat.
+enroll-cancelled = Registreringen avbruten.
+
+error-permission-denied = Tillstånd nekat.
+error-already-in-use = Enhet används redan av ett annat program.
+error-internal = Ett internt fel uppstod.
+error-no-enrolled-prints = Inga fingeravtryck registrerade för detta finger.
+error-claim-device = Kunde inte göra anspråk på enhet.
+error-device-not-found = Fingeravtrycksenhet hittades inte.
+error-timeout = Åtgärd har nått tidsgränsen.
+error-prints-not-deleted = Kunde inte radera fingeravtryck.

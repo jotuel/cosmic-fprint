@@ -1,0 +1,53 @@
+app-title = Lisää sormenjälki
+about = Tietoa
+view = Katso
+fprint = Rekisteröi sormenjälki
+welcome = Rekisteröi tai poista sormenjälkiä
+git-description = Git julkaisu {$hash} päivänä {$date}
+register = Rekisteröi
+delete = Poista
+deleting = Poistetaan sormenjälkeä...
+deleted = Sormenjälki poistettu.
+cancel = Peruuta
+
+page-right-thumb = Oikea Peukalo
+page-right-index-finger = Oikea Etusormi
+page-right-middle-finger = Oikea Keskisormi
+page-right-ring-finger = Oikea Nimetön
+page-right-little-finger = Oikea Pikkusormi
+page-left-thumb = Vasen Peukalo
+page-left-index-finger = Vasen Etusormi
+page-left-middle-finger = Vasen Keskisormi
+page-left-ring-finger = Vasen Nimetön
+page-left-little-finger = Vasen Pikkusormi
+
+status-connecting = Yhdistetään järjestelmäväylään...
+status-searching-device = Etsitään sormenjälkilukijaa...
+status-device-found = Laite löydetty. Valmis.
+status-no-device-found = Sormenjälkiä ei löytynyt.
+status-starting-enrollment = Aloitetaan rekisteröintiä...
+
+enroll-starting = Aseta sormi lukijalle aloittaaksesi.
+enroll-stage-passed = Skannaus onnistui. Jatka.
+enroll-retry-scan = Skannaus epäonnistui. Yritä uudestaan.
+enroll-swipe-too-short = Pyyhkäisy liian lyhyt. Pyyhkäise lukijan koko pituudelta.
+enroll-finger-not-centered = Sormi ei keskellä. Aseta sormi lukijan keskelle.
+enroll-remove-and-retry = Poista sormi sekä yritä uudestaan.
+enroll-unknown-error = Tuntematon virhe.
+enroll-completed = Rekisteröinti onnistui.
+enroll-failed = Rekisteröinti epäonnistui.
+enroll-disconnected = Laite katkaisi yhteyden.
+enroll-data-full = Sormenjälkien tallennus on täynnä. Poista jotkin sormenjälkit.
+enroll-too-fast = Pyyhkäisy liian nopea. Pyyhkäise hitaammin.
+enroll-duplicate = Tämä sormi on jo rekisteröity.
+enroll-cancelled = Rekisteröinti peruttu.
+
+error-permission-denied = Ei sallittu.
+error-already-in-use = Laite on jo käytössä toisessa sovelluksessa.
+error-internal = Sisäinen virhe tapahtui.
+error-no-enrolled-prints = Ei rekisteröityjä sormenjälkiä.
+error-claim-device = Laitettu ei saatu käyttöönotettua.
+error-device-not-found = Sormenjälkilukijaa ei löytynyt.
+error-timeout = Aikakatkaisu.
+error-prints-not-deleted = Ei onnistuttu poistamaan sormenjälkeä.
+error-connect-dbus = Yhdistäminen järjestelmäväylään epäonnistui: {$err}

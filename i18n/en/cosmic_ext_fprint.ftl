@@ -50,3 +50,4 @@ error-claim-device = Could not claim the device.
 error-device-not-found = Fingerprint device not found.
 error-timeout = Operation timed out.
 error-prints-not-deleted = Could not delete fingerprints.
+error-connect-dbus = Failed to connect to DBus: {$err}

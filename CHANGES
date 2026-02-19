@@ -13,9 +13,13 @@
   - Added localization string
   - More idiomatic Rust
   - Improved memory reusage
-0.3.8: 
+0.3.8:
   - Changed repository name to cosmic-ext-utils for legal reasons
   - Replaced COSMIC Fprint ids with just fi.joonastuomi.Fprint or Fprint
 0.3.9:
   - Improved licensing by adding identifiers to all files and adding full copy of it
   - Maintainability improvements by structuring the code into smaller functions
+0.3.10:
+  - Fallback to finding user with libc instead of enviroment variable
+  - Swedish translation thanks to @bittin
+  - Finnish translation

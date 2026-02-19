@@ -14,6 +14,7 @@ use cosmic::widget::{self, icon, menu, nav_bar, text};
 use cosmic::{cosmic_theme, theme};
 use futures_util::stream::{self, StreamExt};
 use futures_util::SinkExt;
+use nix::unistd::{Uid, User};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -57,6 +58,8 @@ pub struct AppModel {
     status: String,
     // Currently selected device path
     device_path: Option<Arc<zbus::zvariant::OwnedObjectPath>>,
+    // Reused device proxy
+    device_proxy: Option<DeviceProxy<'static>>,
     // Shared DBus connection
     connection: Option<zbus::Connection>,
     // Whether an operation is in progress
@@ -132,16 +135,20 @@ impl cosmic::Application for AppModel {
                 .unwrap_or_default(),
             status: fl!("status-connecting"),
             device_path: None,
+            device_proxy: None,
             connection: None,
             busy: true,
             enrolling_finger: None,
             enroll_progress: 0,
             enroll_total_stages: None,
             users: Vec::new(),
-            selected_user: std::env::var("USER").ok().map(|u| UserOption {
-                username: Arc::new(u.clone()),
-                realname: Arc::new(String::new()),
-            }),
+            selected_user: User::from_uid(Uid::current())
+                .ok()
+                .flatten()
+                .map(|u| UserOption {
+                    username: Arc::new(u.name),
+                    realname: Arc::new(u.gecos.to_string_lossy().into_owned()),
+                }),
             enrolled_fingers: Vec::new(),
         };
 
@@ -153,7 +160,7 @@ impl cosmic::Application for AppModel {
             async move {
                 match zbus::Connection::system().await {
                     Ok(conn) => Message::ConnectionReady(conn),
-                    Err(e) => Message::OperationError(AppError::Unknown(format!("Failed to connect to DBus: {}", e))),
+                    Err(e) => Message::OperationError(AppError::ConnectDbus(e.to_string())),
                 }
             },
             cosmic::Action::App,
@@ -425,15 +432,14 @@ impl AppModel {
     }
 
     fn list_fingers_task(&self) -> Task<cosmic::Action<Message>> {
-        if let (Some(path), Some(conn), Some(user)) =
-            (&self.device_path, &self.connection, &self.selected_user)
+        if let (Some(proxy), Some(user)) =
+            (&self.device_proxy, &self.selected_user)
         {
-            let path = (**path).clone();
-            let conn = conn.clone();
+            let proxy = proxy.clone();
             let username = (*user.username).clone();
             return Task::perform(
                 async move {
-                    match list_enrolled_fingers_dbus(&conn, path, username).await {
+                    match list_enrolled_fingers_dbus(&proxy, username).await {
                         Ok(fingers) => Message::EnrolledFingers(fingers),
                         Err(e) => Message::OperationError(
                             AppError::from(e).with_context("Failed to list fingers"),
@@ -454,7 +460,7 @@ impl AppModel {
         let find_device_task = Task::perform(
             async move {
                 match find_device(&conn_clone).await {
-                    Ok(path) => Message::DeviceFound(Some(path)),
+                    Ok((path, proxy)) => Message::DeviceFound(Some((path, proxy))),
                     Err(e) => {
                         let error = AppError::from(e);
                         if matches!(error, AppError::Unknown(_)) {
@@ -520,11 +526,13 @@ impl AppModel {
 
 
                 // Fallback to current user if list is empty
-                if users.is_empty() && let Ok(user) = std::env::var("USER") {
-                    users.push(UserOption {
-                        username: Arc::new(user.clone()),
-                        realname: Arc::new(String::new()),
-                    });
+                if users.is_empty() {
+                    if let Ok(Some(user)) = User::from_uid(Uid::current()) {
+                        users.push(UserOption {
+                            username: Arc::new(user.name),
+                            realname: Arc::new(user.gecos.to_string_lossy().into_owned()),
+                        });
+                    }
                 }
                 Message::UsersFound(users)
             },
@@ -565,10 +573,11 @@ impl AppModel {
 
     fn on_device_found(
         &mut self,
-        path: Option<zbus::zvariant::OwnedObjectPath>,
+        device_info: Option<(zbus::zvariant::OwnedObjectPath, DeviceProxy<'static>)>,
     ) -> Task<cosmic::Action<Message>> {
-        self.device_path = path.map(Arc::new);
-        if self.device_path.is_some() && self.connection.is_some() {
+        if let Some((path, proxy)) = device_info {
+            self.device_path = Some(Arc::new(path));
+            self.device_proxy = Some(proxy);
             self.status = fl!("status-device-found");
             self.busy = false;
 
@@ -578,6 +587,8 @@ impl AppModel {
                 Task::none()
             }
         } else {
+            self.device_path = None;
+            self.device_proxy = None;
             self.status = fl!("status-no-device-found");
             self.busy = true;
             Task::none()
@@ -822,6 +833,11 @@ mod tests {
         assert_eq!(
             AppError::Timeout.localized_message(),
             "Operation timed out."
+        );
+        // Test localized message for DBus connection error
+        assert_eq!(
+            AppError::ConnectDbus("Connection error".to_string()).localized_message(),
+            "Failed to connect to DBus: \u{2068}Connection error\u{2069}"
         );
     }
 
