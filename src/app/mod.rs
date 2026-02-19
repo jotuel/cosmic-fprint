@@ -27,7 +27,7 @@ use page::{ContextPage, Page};
 use message::{Message, UserOption};
 use fprint::{
     delete_fingerprint_dbus, delete_fingers, enroll_fingerprint_process, find_device,
-    list_enrolled_fingers_dbus,
+    clear_all_fingers_dbus,list_enrolled_fingers_dbus,
 };
 use error::AppError;
 
@@ -76,6 +76,8 @@ pub struct AppModel {
     selected_user: Option<UserOption>,
     // List of enrolled fingers
     enrolled_fingers: Vec<String>,
+    // Confirmation state for clearing the device
+    confirm_clear: bool,
 }
 
 /// Create a COSMIC application from the app model
@@ -151,6 +153,7 @@ impl cosmic::Application for AppModel {
                     realname: Arc::new(u.gecos.to_string_lossy().into_owned()),
                 }),
             enrolled_fingers: Vec::new(),
+            confirm_clear: false,
         };
 
         // Create a startup command that sets the window title.
@@ -352,6 +355,22 @@ impl cosmic::Application for AppModel {
 
             Message::Delete => self.on_delete(),
 
+            Message::ClearDevice => self.on_clear_device(),
+
+            Message::ClearComplete(res) => {
+                match res {
+                    Ok(_) => {
+                        self.status = fl!("device-cleared");
+                        self.enrolled_fingers.clear();
+                    }
+                    Err(e) => {
+                        self.status = e.localized_message();
+                    }
+                }
+                self.busy = false;
+                Task::none()
+            }
+
             Message::Register => self.on_register(),
 
             Message::OpenRepositoryUrl => {
@@ -393,7 +412,7 @@ impl cosmic::Application for AppModel {
         if self.busy {
             return Task::none();
         }
-
+        self.confirm_clear = false;
         // Activate the page in the model.
         self.nav.activate(id);
 
@@ -574,7 +593,7 @@ impl AppModel {
         if self.busy {
             return Task::none();
         }
-
+        self.confirm_clear = false;
         self.selected_user = Some(user.clone());
         self.enrolled_fingers.clear();
         self.list_fingers_task()
@@ -654,6 +673,32 @@ impl AppModel {
                     )),
                     Err(e) => cosmic::Action::App(Message::OperationError(AppError::from(e))),
                 },
+            );
+        }
+        Task::none()
+    }
+
+    fn on_clear_device(&mut self) -> Task<cosmic::Action<Message>> {
+        if !self.confirm_clear {
+            self.confirm_clear = true;
+            self.status = fl!("clear-device-confirm");
+            return Task::none();
+        }
+
+        if let (Some(path), Some(conn)) = (self.device_path.clone(), self.connection.clone()) {
+            self.status = fl!("clearing-device");
+            self.busy = true;
+            self.confirm_clear = false;
+            let path = (*path).clone();
+            let usernames: Vec<String> = self.users.iter().map(|u| (*u.username).clone()).collect();
+            return Task::perform(
+                async move {
+                    match clear_all_fingers_dbus(&conn, path, usernames).await {
+                        Ok(_) => Message::ClearComplete(Ok(())),
+                        Err(e) => Message::ClearComplete(Err(AppError::from(e))),
+                    }
+                },
+                cosmic::Action::App,
             );
         }
         Task::none()
@@ -796,6 +841,12 @@ impl AppModel {
 
         let register_btn = widget::button::text(fl!("register"));
         let delete_btn = widget::button::text(fl!("delete"));
+        let clear_text = if self.confirm_clear {
+            fl!("confirm-clear")
+        } else {
+            fl!("clear-device")
+        };
+        let clear_btn = widget::button::text(clear_text);
 
         let register_btn = if buttons_enabled && current_finger.is_some() {
             register_btn.on_press(Message::Register)
@@ -809,6 +860,13 @@ impl AppModel {
             delete_btn
         };
 
+        let clear_btn = if !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none()
+        {
+            clear_btn.on_press(Message::ClearDevice)
+        } else {
+            clear_btn
+        };
+
         let mut cancel_btn = widget::button::text(fl!("cancel"));
         if self.enrolling_finger.is_some() {
             cancel_btn = cancel_btn.on_press(Message::EnrollStop);
@@ -816,7 +874,8 @@ impl AppModel {
 
         let mut row = widget::row()
             .push(register_btn)
-            .push(delete_btn);
+            .push(delete_btn)
+            .push(clear_btn);
 
         if self.enrolling_finger.is_some() {
             row = row.push(cancel_btn);
