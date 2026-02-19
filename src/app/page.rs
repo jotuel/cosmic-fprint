@@ -16,6 +16,7 @@ pub enum Page {
     LeftMiddle,
     LeftRing,
     LeftPinky,
+    DeleteAllUsersPrints,
 }
 
 impl Page {
@@ -31,6 +32,7 @@ impl Page {
             Self::LeftMiddle,
             Self::LeftRing,
             Self::LeftPinky,
+            Self::DeleteAllUsersPrints,
         ]
     }
 
@@ -46,21 +48,23 @@ impl Page {
             Self::LeftMiddle => fl!("page-left-middle-finger"),
             Self::LeftRing => fl!("page-left-ring-finger"),
             Self::LeftPinky => fl!("page-left-little-finger"),
+            Self::DeleteAllUsersPrints => fl!("page-delete-all-users-prints"),
         }
     }
 
-    pub fn as_finger_id(&self) -> &'static str {
+    pub fn as_finger_id(&self) -> Option<&'static str> {
         match self {
-            Page::RightThumb => "right-thumb",
-            Page::RightIndex => "right-index-finger",
-            Page::RightMiddle => "right-middle-finger",
-            Page::RightRing => "right-ring-finger",
-            Page::RightPinky => "right-little-finger",
-            Page::LeftThumb => "left-thumb",
-            Page::LeftIndex => "left-index-finger",
-            Page::LeftMiddle => "left-middle-finger",
-            Page::LeftRing => "left-ring-finger",
-            Page::LeftPinky => "left-little-finger",
+            Page::RightThumb => Some("right-thumb"),
+            Page::RightIndex => Some("right-index-finger"),
+            Page::RightMiddle => Some("right-middle-finger"),
+            Page::RightRing => Some("right-ring-finger"),
+            Page::RightPinky => Some("right-little-finger"),
+            Page::LeftThumb => Some("left-thumb"),
+            Page::LeftIndex => Some("left-index-finger"),
+            Page::LeftMiddle => Some("left-middle-finger"),
+            Page::LeftRing => Some("left-ring-finger"),
+            Page::LeftPinky => Some("left-little-finger"),
+            Page::DeleteAllUsersPrints => None,
         }
     }
 }
@@ -79,7 +83,7 @@ mod tests {
     #[test]
     fn test_page_all() {
         let pages = Page::all();
-        assert_eq!(pages.len(), 10);
+        assert_eq!(pages.len(), 11);
         assert_eq!(pages[0], Page::RightThumb);
         assert_eq!(pages[1], Page::RightIndex);
         assert_eq!(pages[2], Page::RightMiddle);
@@ -90,6 +94,7 @@ mod tests {
         assert_eq!(pages[7], Page::LeftMiddle);
         assert_eq!(pages[8], Page::LeftRing);
         assert_eq!(pages[9], Page::LeftPinky);
+        assert_eq!(pages[10], Page::DeleteAllUsersPrints);
     }
 
     #[test]
@@ -106,19 +111,21 @@ mod tests {
         assert!(!Page::LeftMiddle.localized_name().is_empty());
         assert!(!Page::LeftRing.localized_name().is_empty());
         assert!(!Page::LeftPinky.localized_name().is_empty());
+        assert!(!Page::DeleteAllUsersPrints.localized_name().is_empty());
     }
 
     #[test]
     fn test_page_as_finger_id() {
-        assert_eq!(Page::RightThumb.as_finger_id(), "right-thumb");
-        assert_eq!(Page::RightIndex.as_finger_id(), "right-index-finger");
-        assert_eq!(Page::RightMiddle.as_finger_id(), "right-middle-finger");
-        assert_eq!(Page::RightRing.as_finger_id(), "right-ring-finger");
-        assert_eq!(Page::RightPinky.as_finger_id(), "right-little-finger");
-        assert_eq!(Page::LeftThumb.as_finger_id(), "left-thumb");
-        assert_eq!(Page::LeftIndex.as_finger_id(), "left-index-finger");
-        assert_eq!(Page::LeftMiddle.as_finger_id(), "left-middle-finger");
-        assert_eq!(Page::LeftRing.as_finger_id(), "left-ring-finger");
-        assert_eq!(Page::LeftPinky.as_finger_id(), "left-little-finger");
+        assert_eq!(Page::RightThumb.as_finger_id(), Some("right-thumb"));
+        assert_eq!(Page::RightIndex.as_finger_id(), Some("right-index-finger"));
+        assert_eq!(Page::RightMiddle.as_finger_id(), Some("right-middle-finger"));
+        assert_eq!(Page::RightRing.as_finger_id(), Some("right-ring-finger"));
+        assert_eq!(Page::RightPinky.as_finger_id(), Some("right-little-finger"));
+        assert_eq!(Page::LeftThumb.as_finger_id(), Some("left-thumb"));
+        assert_eq!(Page::LeftIndex.as_finger_id(), Some("left-index-finger"));
+        assert_eq!(Page::LeftMiddle.as_finger_id(), Some("left-middle-finger"));
+        assert_eq!(Page::LeftRing.as_finger_id(), Some("left-ring-finger"));
+        assert_eq!(Page::LeftPinky.as_finger_id(), Some("left-little-finger"));
+        assert_eq!(Page::DeleteAllUsersPrints.as_finger_id(), None);
     }
 }
