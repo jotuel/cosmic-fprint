@@ -25,6 +25,7 @@ page-left-index-finger = Left Index Finger
 page-left-middle-finger = Left Middle Finger
 page-left-ring-finger = Left Ring Finger
 page-left-little-finger = Left Little Finger
+page-delete-all-users-prints = Delete All User's Prints
 
 status-connecting = Connecting to system bus...
 status-searching-device = Searching for fingerprint reader...
