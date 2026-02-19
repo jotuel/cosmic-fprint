@@ -20,4 +20,6 @@
   - Improved licensing by adding identifiers to all files and adding full copy of it
   - Maintainability improvements by structuring the code into smaller functions
 0.3.10:
+  - Fallback to finding user with libc instead of enviroment variable
   - Swedish translation thanks to @bittin
+  - Finnish translation
