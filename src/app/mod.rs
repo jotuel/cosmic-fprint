@@ -10,7 +10,7 @@ use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::widget::pick_list;
 use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
-use cosmic::widget::{self, icon, menu, nav_bar, text};
+use cosmic::widget::{self, icon, menu, nav_bar, text, dialog};
 use cosmic::{cosmic_theme, theme};
 use futures_util::stream::{self, StreamExt};
 use futures_util::SinkExt;
@@ -206,6 +206,27 @@ impl cosmic::Application for AppModel {
         })
     }
 
+    /// Display a dialog in the center of the application window when `Some`.
+    fn dialog(&self) -> Option<Element<'_, Self::Message>> {
+        if self.confirm_clear {
+            Some(
+                dialog::dialog()
+                    .title(fl!("clear-device"))
+                    .body(fl!("clear-device-confirm"))
+                    .primary_action(
+                        widget::button::destructive(fl!("clear-device"))
+                            .on_press(Message::ClearDevice),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel")).on_press(Message::CancelClear),
+                    )
+                    .into(),
+            )
+        } else {
+            None
+        }
+    }
+
     /// Describes the interface based on the current state of the application model.
     ///
     /// Application events will be processed through the view. Any messages emitted by
@@ -356,6 +377,11 @@ impl cosmic::Application for AppModel {
             Message::Delete => self.on_delete(),
 
             Message::ClearDevice => self.on_clear_device(),
+
+            Message::CancelClear => {
+                self.confirm_clear = false;
+                Task::none()
+            }
 
             Message::ClearComplete(res) => {
                 match res {
@@ -681,7 +707,6 @@ impl AppModel {
     fn on_clear_device(&mut self) -> Task<cosmic::Action<Message>> {
         if !self.confirm_clear {
             self.confirm_clear = true;
-            self.status = fl!("clear-device-confirm");
             return Task::none();
         }
 
@@ -841,12 +866,7 @@ impl AppModel {
 
         let register_btn = widget::button::text(fl!("register"));
         let delete_btn = widget::button::text(fl!("delete"));
-        let clear_text = if self.confirm_clear {
-            fl!("confirm-clear")
-        } else {
-            fl!("clear-device")
-        };
-        let clear_btn = widget::button::text(clear_text);
+        let clear_btn = widget::button::text(fl!("clear-device"));
 
         let register_btn = if buttons_enabled && current_finger.is_some() {
             register_btn.on_press(Message::Register)

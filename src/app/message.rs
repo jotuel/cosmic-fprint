@@ -23,6 +23,7 @@ pub enum Message {
     EnrollStop,
     DeleteComplete,
     ClearDevice,
+    CancelClear,
     ClearComplete(Result<(), AppError>),
     EnrolledFingers(Vec<String>),
     UsersFound(Vec<UserOption>),
