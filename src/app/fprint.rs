@@ -39,6 +39,18 @@ pub async fn delete_fingerprint_dbus(
     res.and(rel_res)
 }
 
+pub async fn delete_fingers(
+    connection: &zbus::Connection,
+    path: zbus::zvariant::OwnedObjectPath,
+    username: String,
+) -> zbus::Result<()> {
+    let device = DeviceProxy::builder(connection).path(path)?.build().await?;
+
+    device.claim(&username).await?;
+    let _ = device.delete_enrolled_fingers2().await;
+    device.release().await
+}
+
 pub async fn clear_all_fingers_dbus(
     connection: &zbus::Connection,
     path: zbus::zvariant::OwnedObjectPath,

@@ -20,6 +20,7 @@ pub trait Device {
     fn release(&self) -> zbus::Result<()>;
     fn list_enrolled_fingers(&self, username: &str) -> zbus::Result<Vec<String>>;
     fn delete_enrolled_finger(&self, finger_name: &str) -> zbus::Result<()>;
+    fn delete_enrolled_fingers2(&self) -> zbus::Result<()>;
     fn enroll_start(&self, finger_name: &str) -> zbus::Result<()>;
     fn enroll_stop(&self) -> zbus::Result<()>;
 
