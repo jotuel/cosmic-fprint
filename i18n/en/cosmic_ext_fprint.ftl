@@ -6,8 +6,13 @@ welcome = Register and/or delete fingerprints
 git-description = Git commit {$hash} on {$date}
 register = Register
 delete = Delete
-deleting = Deleting fingerprint...
 deleted = Deleted fingerprint.
+deleting = Deleting fingerprint...
+clear-device = Clear Device
+confirm-clear = Are you sure?
+clearing-device = Clearing all fingerprints from device for all known users...
+device-cleared = Device cleared for all known users.
+clear-device-confirm = Are you sure you want to clear fingerprints for ALL known users?
 cancel = Cancel
 
 page-right-thumb = Right Thumb
@@ -20,6 +25,7 @@ page-left-index-finger = Left Index Finger
 page-left-middle-finger = Left Middle Finger
 page-left-ring-finger = Left Ring Finger
 page-left-little-finger = Left Little Finger
+page-delete-all-users-prints = Delete All User's Prints
 
 status-connecting = Connecting to system bus...
 status-searching-device = Searching for fingerprint reader...

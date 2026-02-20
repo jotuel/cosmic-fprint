@@ -10,7 +10,7 @@ use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::widget::pick_list;
 use cosmic::iced::{Alignment, Length, Subscription};
 use cosmic::prelude::*;
-use cosmic::widget::{self, icon, menu, nav_bar, text};
+use cosmic::widget::{self, icon, menu, nav_bar, text, dialog};
 use cosmic::{cosmic_theme, theme};
 use futures_util::stream::{self, StreamExt};
 use futures_util::SinkExt;
@@ -26,7 +26,8 @@ pub mod error;
 use page::{ContextPage, Page};
 use message::{Message, UserOption};
 use fprint::{
-    delete_fingerprint_dbus, enroll_fingerprint_process, find_device, list_enrolled_fingers_dbus,
+    delete_fingerprint_dbus, delete_fingers, enroll_fingerprint_process, find_device,
+    clear_all_fingers_dbus,list_enrolled_fingers_dbus,
 };
 use error::AppError;
 
@@ -75,6 +76,8 @@ pub struct AppModel {
     selected_user: Option<UserOption>,
     // List of enrolled fingers
     enrolled_fingers: Vec<String>,
+    // Confirmation state for clearing the device
+    confirm_clear: bool,
 }
 
 /// Create a COSMIC application from the app model
@@ -150,6 +153,7 @@ impl cosmic::Application for AppModel {
                     realname: Arc::new(u.gecos.to_string_lossy().into_owned()),
                 }),
             enrolled_fingers: Vec::new(),
+            confirm_clear: false,
         };
 
         // Create a startup command that sets the window title.
@@ -200,6 +204,27 @@ impl cosmic::Application for AppModel {
             )
             .title(fl!("about")),
         })
+    }
+
+    /// Display a dialog in the center of the application window when `Some`.
+    fn dialog(&self) -> Option<Element<'_, Self::Message>> {
+        if self.confirm_clear {
+            Some(
+                dialog::dialog()
+                    .title(fl!("clear-device"))
+                    .body(fl!("clear-device-confirm"))
+                    .primary_action(
+                        widget::button::destructive(fl!("clear-device"))
+                            .on_press(Message::ClearDevice),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel")).on_press(Message::CancelClear),
+                    )
+                    .into(),
+            )
+        } else {
+            None
+        }
     }
 
     /// Describes the interface based on the current state of the application model.
@@ -339,17 +364,38 @@ impl cosmic::Application for AppModel {
             Message::DeleteComplete => {
                 self.status = fl!("deleted");
                 self.busy = false;
-                self.enrolled_fingers.retain(|f| {
-                    f != self
-                        .nav
-                        .data::<Page>(self.nav.active())
-                        .map(|p| p.as_finger_id())
-                        .unwrap_or_default()
-                });
+                if let Some(page) = self.nav.data::<Page>(self.nav.active()) {
+                    if let Some(finger_id) = page.as_finger_id() {
+                        self.enrolled_fingers.retain(|f| f != finger_id);
+                    } else {
+                        self.enrolled_fingers.clear();
+                    }
+                }
                 Task::none()
             }
 
             Message::Delete => self.on_delete(),
+
+            Message::ClearDevice => self.on_clear_device(),
+
+            Message::CancelClear => {
+                self.confirm_clear = false;
+                Task::none()
+            }
+
+            Message::ClearComplete(res) => {
+                match res {
+                    Ok(_) => {
+                        self.status = fl!("device-cleared");
+                        self.enrolled_fingers.clear();
+                    }
+                    Err(e) => {
+                        self.status = e.localized_message();
+                    }
+                }
+                self.busy = false;
+                Task::none()
+            }
 
             Message::Register => self.on_register(),
 
@@ -389,6 +435,10 @@ impl cosmic::Application for AppModel {
 
     /// Called when a nav item is selected.
     fn on_nav_select(&mut self, id: nav_bar::Id) -> Task<cosmic::Action<Self::Message>> {
+        if self.busy {
+            return Task::none();
+        }
+        self.confirm_clear = false;
         // Activate the page in the model.
         self.nav.activate(id);
 
@@ -566,6 +616,10 @@ impl AppModel {
     }
 
     fn on_user_selected(&mut self, user: UserOption) -> Task<cosmic::Action<Message>> {
+        if self.busy {
+            return Task::none();
+        }
+        self.confirm_clear = false;
         self.selected_user = Some(user.clone());
         self.enrolled_fingers.clear();
         self.list_fingers_task()
@@ -650,6 +704,31 @@ impl AppModel {
         Task::none()
     }
 
+    fn on_clear_device(&mut self) -> Task<cosmic::Action<Message>> {
+        if !self.confirm_clear {
+            self.confirm_clear = true;
+            return Task::none();
+        }
+
+        if let (Some(path), Some(conn)) = (self.device_path.clone(), self.connection.clone()) {
+            self.status = fl!("clearing-device");
+            self.busy = true;
+            self.confirm_clear = false;
+            let path = (*path).clone();
+            let usernames: Vec<String> = self.users.iter().map(|u| (*u.username).clone()).collect();
+            return Task::perform(
+                async move {
+                    match clear_all_fingers_dbus(&conn, path, usernames).await {
+                        Ok(_) => Message::ClearComplete(Ok(())),
+                        Err(e) => Message::ClearComplete(Err(AppError::from(e))),
+                    }
+                },
+                cosmic::Action::App,
+            );
+        }
+        Task::none()
+    }
+
     fn on_delete(&mut self) -> Task<cosmic::Action<Message>> {
         if let Some(page) = self.nav.data::<Page>(self.nav.active())
             && let (Some(path), Some(conn), Some(user)) = (
@@ -660,29 +739,43 @@ impl AppModel {
         {
             self.status = fl!("deleting");
             self.busy = true;
-            let finger_name = page.as_finger_id().to_string();
             let path = (*path).clone();
             let username = (*user.username).clone();
-            return Task::perform(
-                async move {
-                    match delete_fingerprint_dbus(&conn, path, finger_name, username).await {
-                        Ok(_) => Message::DeleteComplete,
-                        Err(e) => Message::OperationError(AppError::from(e)),
-                    }
-                },
-                cosmic::Action::App,
-            );
+
+            if let Some(finger_name) = page.as_finger_id() {
+                let finger_name = finger_name.to_string();
+                return Task::perform(
+                    async move {
+                        match delete_fingerprint_dbus(&conn, path, finger_name, username).await {
+                            Ok(_) => Message::DeleteComplete,
+                            Err(e) => Message::OperationError(AppError::from(e)),
+                        }
+                    },
+                    cosmic::Action::App,
+                );
+            } else {
+                return Task::perform(
+                    async move {
+                        match delete_fingers(&conn, path, username).await {
+                            Ok(_) => Message::DeleteComplete,
+                            Err(e) => Message::OperationError(AppError::from(e)),
+                        }
+                    },
+                    cosmic::Action::App,
+                );
+            }
         }
         Task::none()
     }
 
     fn on_register(&mut self) -> Task<cosmic::Action<Message>> {
         if let Some(page) = self.nav.data::<Page>(self.nav.active())
+            && let Some(finger_id) = page.as_finger_id()
             && self.device_path.is_some()
             && self.selected_user.is_some()
         {
             self.busy = true;
-            self.enrolling_finger = Some(Arc::new(page.as_finger_id().to_string()));
+            self.enrolling_finger = Some(Arc::new(finger_id.to_string()));
             self.status = fl!("status-starting-enrollment");
         }
         Task::none()
@@ -764,15 +857,18 @@ impl AppModel {
             !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none();
 
         let current_page = self.nav.data::<Page>(self.nav.active());
-        let current_finger = current_page.map(|p| p.as_finger_id());
-        let is_enrolled = current_finger
-            .map(|f| self.enrolled_fingers.iter().any(|ef| ef == f))
-            .unwrap_or(false);
+        let current_finger = current_page.and_then(|p| p.as_finger_id());
+        let is_enrolled = if let Some(f) = current_finger {
+            self.enrolled_fingers.iter().any(|ef| ef == f)
+        } else {
+            !self.enrolled_fingers.is_empty()
+        };
 
         let register_btn = widget::button::text(fl!("register"));
         let delete_btn = widget::button::text(fl!("delete"));
+        let clear_btn = widget::button::text(fl!("clear-device"));
 
-        let register_btn = if buttons_enabled {
+        let register_btn = if buttons_enabled && current_finger.is_some() {
             register_btn.on_press(Message::Register)
         } else {
             register_btn
@@ -784,6 +880,13 @@ impl AppModel {
             delete_btn
         };
 
+        let clear_btn = if !self.busy && self.device_path.is_some() && self.enrolling_finger.is_none()
+        {
+            clear_btn.on_press(Message::ClearDevice)
+        } else {
+            clear_btn
+        };
+
         let mut cancel_btn = widget::button::text(fl!("cancel"));
         if self.enrolling_finger.is_some() {
             cancel_btn = cancel_btn.on_press(Message::EnrollStop);
@@ -791,7 +894,8 @@ impl AppModel {
 
         let mut row = widget::row()
             .push(register_btn)
-            .push(delete_btn);
+            .push(delete_btn)
+            .push(clear_btn);
 
         if self.enrolling_finger.is_some() {
             row = row.push(cancel_btn);

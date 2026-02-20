@@ -6,8 +6,13 @@ welcome = Rekisteröi tai poista sormenjälkiä
 git-description = Git julkaisu {$hash} päivänä {$date}
 register = Rekisteröi
 delete = Poista
-deleting = Poistetaan sormenjälkeä...
 deleted = Sormenjälki poistettu.
+deleting = Poistetaan sormenjälkeä...
+clear-device = Tyhjennä laite
+confirm-clear = Oletko varma?
+clearing-device = Tyhjennetään laitteen kaikki käyttäjien sormenjäljet...
+device-cleared = Laite tyhjennetty.
+clear-device-confirm = Oletko varma, että haluat poistaa kaikki käyttäjien sormenjäljet?
 cancel = Peruuta
 
 page-right-thumb = Oikea Peukalo
@@ -20,6 +25,7 @@ page-left-index-finger = Vasen Etusormi
 page-left-middle-finger = Vasen Keskisormi
 page-left-ring-finger = Vasen Nimetön
 page-left-little-finger = Vasen Pikkusormi
+page-delete-all-users-prints = Poista kaikki käyttäjien sormenjäljet
 
 status-connecting = Yhdistetään järjestelmäväylään...
 status-searching-device = Etsitään sormenjälkilukijaa...

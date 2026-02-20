@@ -6,8 +6,13 @@ welcome = Registrera och/eller radera fingeravtryck
 git-description = Git commit {$hash} på {$date}
 register = Registrera
 delete = Radera
-deleting = Raderar fingeravtryck...
 deleted = Raderat fingeravtryck.
+deleting = Raderar fingeravtryck...
+clear-device = Rensa enhet
+confirm-clear = Är du säker?
+clearing-device = Rensar enhet...
+device-cleared = Rensad för alla kända användare.
+clear-device-confirm = Är du säker du vill radera fingeravtryck för alla kända användare?
 cancel = Avbryt
 
 page-right-thumb = Höger tumme
@@ -20,6 +25,7 @@ page-left-index-finger = Vänster pekfinger
 page-left-middle-finger = Vänster långfinger
 page-left-ring-finger = Vänster ringfinger
 page-left-little-finger = Vänster lillfinger
+page-delete-all-users-prints = Radera alla användarens fingeravtryck
 
 status-connecting = Ansluter till system bus...
 status-searching-device = Söker efter fingeravtrycksläsare...
