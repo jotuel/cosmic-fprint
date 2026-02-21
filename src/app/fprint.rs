@@ -92,9 +92,9 @@ pub async fn clear_all_fingers_dbus(
 
 pub async fn enroll_fingerprint_process<S>(
     connection: zbus::Connection,
-    path: zbus::zvariant::OwnedObjectPath,
-    finger_name: String,
-    username: String,
+    path: &zbus::zvariant::OwnedObjectPath,
+    finger_name: &str,
+    username: &str,
     output: &mut S,
 ) -> zbus::Result<()>
 where
@@ -107,7 +107,7 @@ where
         .await?;
 
     // Claim device
-    match device.claim(&username).await {
+    match device.claim(username).await {
         Ok(_) => {}
         Err(e) => return Err(e),
     };
@@ -119,7 +119,7 @@ where
     let _ = output.send(Message::EnrollStart(total_stages)).await;
 
     // Start enrollment
-    if let Err(e) = device.enroll_start(&finger_name).await {
+    if let Err(e) = device.enroll_start(finger_name).await {
         let _ = device.release().await;
         return Err(e);
     }

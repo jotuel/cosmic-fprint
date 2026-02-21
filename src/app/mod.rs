@@ -315,14 +315,11 @@ impl cosmic::Application for AppModel {
                 std::any::TypeId::of::<EnrollmentSubscription>(),
                 cosmic::iced::stream::channel(100, move |mut output| async move {
                     // Implement enrollment stream here
-                    let username = (*user.username).clone();
-                    let device_path = (*device_path).clone();
-                    let finger_name = (*finger_name).clone();
                     match enroll_fingerprint_process(
                         connection,
-                        device_path,
-                        finger_name,
-                        username,
+                        &device_path,
+                        &finger_name,
+                        &user.username,
                         &mut output,
                     )
                     .await
