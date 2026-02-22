@@ -124,18 +124,7 @@ impl cosmic::Application for AppModel {
             nav,
             key_binds: HashMap::new(),
             // Optional configuration file for an application.
-            config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
-                .map(|context| match Config::get_entry(&context) {
-                    Ok(config) => config,
-                    Err((errors, config)) => {
-                        for why in errors {
-                            tracing::error!(%why, "error loading app config");
-                        }
-
-                        config
-                    }
-                })
-                .unwrap_or_default(),
+            config: Config::default(),
             status: fl!("status-connecting"),
             device_path: None,
             device_proxy: None,
@@ -170,7 +159,34 @@ impl cosmic::Application for AppModel {
             cosmic::Action::App,
         );
 
-        (app, command.chain(connect_task))
+        let config_task = Task::perform(
+            async move {
+                let config = tokio::task::spawn_blocking(move || {
+                    cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
+                        .map(|context| match Config::get_entry(&context) {
+                            Ok(config) => config,
+                            Err((errors, config)) => {
+                                for why in errors {
+                                    tracing::error!(%why, "error loading app config");
+                                }
+
+                                config
+                            }
+                        })
+                        .unwrap_or_default()
+                })
+                .await
+                .unwrap_or_else(|e| {
+                    tracing::error!("Config task join error: {}", e);
+                    Config::default()
+                });
+
+                Message::UpdateConfig(config)
+            },
+            cosmic::Action::App,
+        );
+
+        (app, Task::batch(vec![command, connect_task, config_task]))
     }
 
     /// Elements to pack at the start of the header bar.
@@ -299,14 +315,11 @@ impl cosmic::Application for AppModel {
                 std::any::TypeId::of::<EnrollmentSubscription>(),
                 cosmic::iced::stream::channel(100, move |mut output| async move {
                     // Implement enrollment stream here
-                    let username = (*user.username).clone();
-                    let device_path = (*device_path).clone();
-                    let finger_name = (*finger_name).clone();
                     match enroll_fingerprint_process(
                         connection,
-                        device_path,
-                        finger_name,
-                        username,
+                        &device_path,
+                        &finger_name,
+                        &user.username,
                         &mut output,
                     )
                     .await

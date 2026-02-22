@@ -22,6 +22,7 @@ pub async fn list_enrolled_fingers_dbus(
     device: &DeviceProxy<'static>,
     username: String,
 ) -> zbus::Result<Vec<String>> {
+    validate_username(&username)?;
     device.list_enrolled_fingers(&username).await
 }
 
@@ -31,6 +32,7 @@ pub async fn delete_fingerprint_dbus(
     finger: String,
     username: String,
 ) -> zbus::Result<()> {
+    validate_username(&username)?;
     let device = DeviceProxy::builder(connection).path(path)?.build().await?;
 
     device.claim(&username).await?;
@@ -44,6 +46,7 @@ pub async fn delete_fingers(
     path: zbus::zvariant::OwnedObjectPath,
     username: String,
 ) -> zbus::Result<()> {
+    validate_username(&username)?;
     let device = DeviceProxy::builder(connection).path(path)?.build().await?;
 
     device.claim(&username).await?;
@@ -60,6 +63,11 @@ pub async fn clear_all_fingers_dbus(
     let mut last_error = None;
 
     for username in usernames {
+        if let Err(e) = validate_username(&username) {
+            last_error = Some(e);
+            continue;
+        }
+
         if let Err(e) = device.claim(&username).await {
             last_error = Some(e);
             continue;
@@ -92,22 +100,23 @@ pub async fn clear_all_fingers_dbus(
 
 pub async fn enroll_fingerprint_process<S>(
     connection: zbus::Connection,
-    path: zbus::zvariant::OwnedObjectPath,
-    finger_name: String,
-    username: String,
+    path: &zbus::zvariant::OwnedObjectPath,
+    finger_name: &str,
+    username: &str,
     output: &mut S,
 ) -> zbus::Result<()>
 where
     S: Sink<Message> + Unpin + Send,
     S::Error: std::fmt::Debug + Send,
 {
+    validate_username(&username)?;
     let device = DeviceProxy::builder(&connection)
         .path(path)?
         .build()
         .await?;
 
     // Claim device
-    match device.claim(&username).await {
+    match device.claim(username).await {
         Ok(_) => {}
         Err(e) => return Err(e),
     };
@@ -119,7 +128,7 @@ where
     let _ = output.send(Message::EnrollStart(total_stages)).await;
 
     // Start enrollment
-    if let Err(e) = device.enroll_start(&finger_name).await {
+    if let Err(e) = device.enroll_start(finger_name).await {
         let _ = device.release().await;
         return Err(e);
     }
@@ -164,4 +173,52 @@ where
     let _ = device.release().await;
 
     Ok(())
+}
+
+fn validate_username(username: &str) -> zbus::Result<()> {
+    if username.is_empty() {
+        return Err(zbus::Error::Failure("Username cannot be empty".to_string()));
+    }
+    if username.len() > 255 {
+        return Err(zbus::Error::Failure("Username is too long".to_string()));
+    }
+    if !username.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.') {
+        return Err(zbus::Error::Failure(format!(
+            "Invalid characters in username: {}",
+            username
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_username() {
+        // Valid usernames
+        assert!(validate_username("user").is_ok());
+        assert!(validate_username("user1").is_ok());
+        assert!(validate_username("user_name").is_ok());
+        assert!(validate_username("user-name").is_ok());
+        assert!(validate_username("user.name").is_ok());
+        assert!(validate_username("u").is_ok());
+        assert!(validate_username("123").is_ok());
+        assert!(validate_username("User").is_ok()); // Uppercase is allowed by our validation
+
+        // Invalid usernames
+        assert!(validate_username("").is_err());
+        assert!(validate_username("user name").is_err()); // space
+        assert!(validate_username("user/name").is_err()); // slash
+        assert!(validate_username("user@name").is_err()); // @
+        assert!(validate_username("user!name").is_err()); // !
+        assert!(validate_username("user?name").is_err()); // ?
+
+        let long_name = "a".repeat(256);
+        assert!(validate_username(&long_name).is_err());
+
+        let max_len_name = "a".repeat(255);
+        assert!(validate_username(&max_len_name).is_ok());
+    }
 }
